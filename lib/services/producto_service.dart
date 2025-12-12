@@ -7,7 +7,69 @@ import 'api_service.dart';
 
 /// Servicio de Productos
 class ProductoService {
-  /// Obtener todas las imágenes
+  // Map estático para almacenar idImagen -> urlimagen
+  static Map<int, String> _imagenesCache = {};
+  static bool _imagenesCargadas = false;
+
+  /// Obtener URL de imagen por idImagen
+  static String? getUrlImagen(int? idImagen) {
+    if (idImagen == null) return null;
+    return _imagenesCache[idImagen];
+  }
+
+  /// Cargar todas las imágenes y crear el Map idImagen -> urlimagen
+  static Future<void> cargarImagenes() async {
+    if (_imagenesCargadas && _imagenesCache.isNotEmpty) {
+      debugPrint('✅ ProductoService: Imágenes ya están en caché');
+      return;
+    }
+
+    try {
+      debugPrint('🔵 ProductoService: Cargando imágenes desde ${ApiConfig.imagenesEndpoint}');
+      
+      final response = await ApiService.get(
+        ApiConfig.imagenesEndpoint,
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final List<dynamic> imagenesJson = jsonDecode(response.body);
+          debugPrint('🔵 ProductoService: Imágenes JSON parseadas: ${imagenesJson.length} items');
+          
+          // Limpiar el caché anterior
+          _imagenesCache.clear();
+          
+          // Crear el Map idImagen -> urlimagen
+          for (var json in imagenesJson) {
+            try {
+              final imagen = Imagen.fromJson(json as Map<String, dynamic>);
+              if (imagen.idImagen != null && 
+                  imagen.urlimagen != null && 
+                  imagen.urlimagen!.isNotEmpty) {
+                _imagenesCache[imagen.idImagen!] = imagen.urlimagen!;
+              }
+            } catch (e) {
+              debugPrint('❌ ProductoService: Error al parsear imagen: $e');
+            }
+          }
+
+          _imagenesCargadas = true;
+          debugPrint('✅ ProductoService: ${_imagenesCache.length} imágenes cargadas en caché');
+        } catch (e) {
+          debugPrint('❌ ProductoService: Error al parsear imágenes JSON: $e');
+          _imagenesCargadas = false;
+        }
+      } else {
+        debugPrint('⚠️ ProductoService: Error al cargar imágenes: ${response.statusCode}');
+        _imagenesCargadas = false;
+      }
+    } catch (e) {
+      debugPrint('⚠️ ProductoService: Error al obtener imágenes: $e');
+      _imagenesCargadas = false;
+    }
+  }
+
+  /// Obtener todas las imágenes (método legacy, mantener por compatibilidad)
   static Future<List<Imagen>> getImagenes() async {
     try {
       debugPrint('🔵 ProductoService: Cargando imágenes desde ${ApiConfig.imagenesEndpoint}');
@@ -49,47 +111,6 @@ class ProductoService {
     }
   }
 
-  /// Asignar imágenes a productos y retornar lista actualizada
-  static List<Producto> _asignarImagenesAProductos(
-    List<Producto> productos,
-    List<Imagen> imagenes,
-  ) {
-    // Crear un mapa de productoId -> lista de imágenes
-    final Map<int, List<Imagen>> imagenesPorProducto = {};
-    
-    for (var imagen in imagenes) {
-      if (imagen.productoId != null && imagen.urlimagen != null && imagen.urlimagen!.isNotEmpty) {
-        imagenesPorProducto.putIfAbsent(imagen.productoId!, () => []).add(imagen);
-      }
-    }
-
-    // Crear nueva lista de productos con imágenes asignadas
-    return productos.map((producto) {
-      if (producto.id != null && imagenesPorProducto.containsKey(producto.id)) {
-        final imagenesProducto = imagenesPorProducto[producto.id]!;
-        if (imagenesProducto.isNotEmpty) {
-          // Usar la primera imagen disponible
-          final primeraImagen = imagenesProducto.first.urlimagen;
-          if (primeraImagen != null && primeraImagen.isNotEmpty) {
-            debugPrint('✅ ProductoService: Imagen asignada a producto ${producto.id}: $primeraImagen');
-            // Retornar producto actualizado con la imagen
-            return Producto(
-              id: producto.id,
-              nombre: producto.nombre,
-              descripcion: producto.descripcion,
-              precio: producto.precio,
-              stock: producto.stock,
-              imagenUrl: primeraImagen,
-              categoriaId: producto.categoriaId,
-              categoriaNombre: producto.categoriaNombre,
-            );
-          }
-        }
-      }
-      // Retornar producto sin cambios si no tiene imagen
-      return producto;
-    }).toList();
-  }
 
   /// Obtener todos los productos
   static Future<List<Producto>> getProductos({int? categoriaId}) async {
@@ -142,13 +163,9 @@ class ProductoService {
 
           debugPrint('✅ ProductoService: Productos cargados exitosamente: ${productos.length}');
           
-          // Cargar imágenes y asignarlas a los productos
+          // Cargar imágenes una sola vez si no están cargadas
           try {
-            final imagenes = await getImagenes();
-            if (imagenes.isNotEmpty) {
-              final productosConImagenes = _asignarImagenesAProductos(productos, imagenes);
-              return productosConImagenes;
-            }
+            await cargarImagenes();
           } catch (e) {
             debugPrint('⚠️ ProductoService: Error al cargar imágenes, continuando sin imágenes: $e');
           }
@@ -181,28 +198,9 @@ class ProductoService {
         final productoJson = jsonDecode(response.body);
         final producto = Producto.fromJson(productoJson as Map<String, dynamic>);
         
-        // Cargar imágenes y asignar al producto
+        // Cargar imágenes una sola vez si no están cargadas
         try {
-          final imagenes = await getImagenes();
-          if (imagenes.isNotEmpty) {
-            final imagenesProducto = imagenes
-                .where((img) => img.productoId == id && img.urlimagen != null && img.urlimagen!.isNotEmpty)
-                .toList();
-            
-            if (imagenesProducto.isNotEmpty) {
-              final primeraImagen = imagenesProducto.first.urlimagen;
-              return Producto(
-                id: producto.id,
-                nombre: producto.nombre,
-                descripcion: producto.descripcion,
-                precio: producto.precio,
-                stock: producto.stock,
-                imagenUrl: primeraImagen,
-                categoriaId: producto.categoriaId,
-                categoriaNombre: producto.categoriaNombre,
-              );
-            }
-          }
+          await cargarImagenes();
         } catch (e) {
           debugPrint('⚠️ ProductoService: Error al cargar imágenes para producto $id: $e');
         }

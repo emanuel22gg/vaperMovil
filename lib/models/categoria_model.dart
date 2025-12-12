@@ -3,30 +3,36 @@ class Categoria {
   final int? id;
   final String nombre;
   final String? descripcion;
-  final String? imagenUrl;
+  final bool? estado;
+  final int? idImagen;
 
   Categoria({
     this.id,
     required this.nombre,
     this.descripcion,
-    this.imagenUrl,
+    this.estado,
+    this.idImagen,
   });
 
   factory Categoria.fromJson(Map<String, dynamic> json) {
+    print('📦 Categoria parseada: id=${json['id']}, nombreCategoria=${json['nombreCategoria']}');
+    
     return Categoria(
       id: json['id'] as int?,
-      nombre: json['nombre'] as String? ?? '',
+      nombre: json['nombreCategoria'] as String? ?? 'Sin nombre',
       descripcion: json['descripcion'] as String?,
-      imagenUrl: json['imagenUrl'] as String?,
+      estado: json['estado'] as bool?,
+      idImagen: json['idImagen'] as int?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       if (id != null) 'id': id,
-      'nombre': nombre,
+      'nombreCategoria': nombre,
       if (descripcion != null) 'descripcion': descripcion,
-      if (imagenUrl != null) 'imagenUrl': imagenUrl,
+      if (estado != null) 'estado': estado,
+      if (idImagen != null) 'idImagen': idImagen,
     };
   }
 }

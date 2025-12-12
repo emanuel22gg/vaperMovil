@@ -499,12 +499,21 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
                       ...productosAgregadosList.map((producto) {
                         final cantidad = _productosAgregados[producto.id]!;
                         final subtotal = producto.precio * cantidad;
+                        // Obtener URL de imagen usando idImagen o imagenUrl como fallback
+                        String? urlImagen;
+                        if (producto.idImagen != null) {
+                          urlImagen = ProductoService.getUrlImagen(producto.idImagen);
+                        }
+                        if (urlImagen == null || urlImagen.isEmpty) {
+                          urlImagen = producto.imagenUrl;
+                        }
+                        
                         return Card(
                           margin: const EdgeInsets.only(bottom: 8),
                           child: ListTile(
-                            leading: producto.imagenUrl != null
+                            leading: urlImagen != null && urlImagen.isNotEmpty
                                 ? Image.network(
-                                    producto.imagenUrl!,
+                                    urlImagen,
                                     width: 50,
                                     height: 50,
                                     fit: BoxFit.cover,

@@ -6,6 +6,7 @@ class Producto {
   final double precio;
   final int stock;
   final String? imagenUrl;
+  final int? idImagen;
   final int? categoriaId;
   final String? categoriaNombre;
 
@@ -16,6 +17,7 @@ class Producto {
     required this.precio,
     required this.stock,
     this.imagenUrl,
+    this.idImagen,
     this.categoriaId,
     this.categoriaNombre,
   });
@@ -54,6 +56,10 @@ class Producto {
                         (json['categoriaProductoId'] as int?) ??
                         (json['CategoriaProductoId'] as int?);
     
+    // Mapear idImagen desde diferentes posibles campos
+    final idImagen = (json['idImagen'] as int?) ??
+                     (json['IdImagen'] as int?);
+    
     return Producto(
       id: json['id'] as int?,
       nombre: nombre,
@@ -62,6 +68,7 @@ class Producto {
       precio: precio,
       stock: stock,
       imagenUrl: imagenUrl,
+      idImagen: idImagen,
       categoriaId: categoriaId,
       categoriaNombre: (json['categoriaNombre'] as String?) ??
                         (json['CategoriaNombre'] as String?),
@@ -76,6 +83,7 @@ class Producto {
       'precio': precio,
       'stock': stock,
       if (imagenUrl != null) 'imagenUrl': imagenUrl,
+      if (idImagen != null) 'idImagen': idImagen,
       if (categoriaId != null) 'categoriaId': categoriaId,
     };
   }

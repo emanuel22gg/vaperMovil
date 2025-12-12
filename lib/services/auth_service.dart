@@ -121,5 +121,51 @@ class AuthService {
       throw Exception(e.toString());
     }
   }
+
+  /// Enviar código de recuperación de contraseña
+  static Future<bool> enviarCodigoRecuperacion(String correo) async {
+    try {
+      final response = await ApiService.post(
+        '${ApiConfig.usuariosEndpoint}/ForgotPassword',
+        {'correo': correo},
+      );
+
+      if (response.statusCode == 200) {
+        // La API siempre devuelve el mensaje, incluso si el correo no existe
+        // Por seguridad, siempre retornamos true
+        return true;
+      } else {
+        throw Exception(ApiService.handleError(response));
+      }
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  /// Restablecer contraseña con código de verificación
+  static Future<bool> restablecerContrasena(
+    String correo,
+    String codigo,
+    String nuevaContrasena,
+  ) async {
+    try {
+      final response = await ApiService.post(
+        '${ApiConfig.usuariosEndpoint}/ResetPassword',
+        {
+          'correo': correo,
+          'codigo': codigo,
+          'nuevaContraseña': nuevaContrasena,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        throw Exception(ApiService.handleError(response));
+      }
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
 }
 

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/pedido_provider.dart';
 import '../../models/detalle_pedido_model.dart';
+import '../../services/producto_service.dart';
 import '../../widgets/custom_button.dart';
 
 /// Pantalla de detalle de pedido (Administrador)
@@ -313,12 +314,21 @@ class _PedidoDetalleAdminScreenState
                   ),
                   const SizedBox(height: 8),
                   ..._detalles.map((detalle) {
+                    // Obtener URL de imagen usando idImagen o imagenUrl como fallback
+                    String? urlImagen;
+                    if (detalle.producto?.idImagen != null) {
+                      urlImagen = ProductoService.getUrlImagen(detalle.producto!.idImagen);
+                    }
+                    if (urlImagen == null || urlImagen.isEmpty) {
+                      urlImagen = detalle.producto?.imagenUrl;
+                    }
+                    
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
-                        leading: detalle.producto?.imagenUrl != null
+                        leading: urlImagen != null && urlImagen.isNotEmpty
                             ? Image.network(
-                                detalle.producto!.imagenUrl!,
+                                urlImagen,
                                 width: 50,
                                 height: 50,
                                 fit: BoxFit.cover,

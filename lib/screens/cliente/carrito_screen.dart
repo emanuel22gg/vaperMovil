@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/pedido_provider.dart';
 import '../../models/detalle_pedido_model.dart';
 import '../../models/venta_pedido_model.dart';
+import '../../services/producto_service.dart';
 import '../../widgets/custom_button.dart';
 
 /// Pantalla del carrito de compras
@@ -214,12 +215,21 @@ class _CarritoScreenState extends State<CarritoScreen> {
                     itemCount: carritoProvider.items.length,
                     itemBuilder: (context, index) {
                       final item = carritoProvider.items[index];
+                      // Obtener URL de imagen usando idImagen o imagenUrl como fallback
+                      String? urlImagen;
+                      if (item.producto.idImagen != null) {
+                        urlImagen = ProductoService.getUrlImagen(item.producto.idImagen);
+                      }
+                      if (urlImagen == null || urlImagen.isEmpty) {
+                        urlImagen = item.producto.imagenUrl;
+                      }
+                      
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         child: ListTile(
-                          leading: item.producto.imagenUrl != null
+                          leading: urlImagen != null && urlImagen.isNotEmpty
                               ? Image.network(
-                                  item.producto.imagenUrl!,
+                                  urlImagen,
                                   width: 60,
                                   height: 60,
                                   fit: BoxFit.cover,

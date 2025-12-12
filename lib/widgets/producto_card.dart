@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/producto_model.dart';
+import '../services/producto_service.dart';
 
 /// Card de producto
 class ProductoCard extends StatelessWidget {
@@ -18,9 +19,24 @@ class ProductoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    
+    // Obtener URL de imagen usando idImagen o imagenUrl como fallback
+    String? urlImagen;
+    if (producto.idImagen != null) {
+      urlImagen = ProductoService.getUrlImagen(producto.idImagen);
+    }
+    // Si no se encontró por idImagen, usar imagenUrl como fallback
+    if (urlImagen == null || urlImagen.isEmpty) {
+      urlImagen = producto.imagenUrl;
+    }
+
+    // Determinar estado del stock
+    final bool estaAgotado = producto.stock == 0;
 
     return Card(
       elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.08),
+      color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -29,18 +45,23 @@ class ProductoCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              flex: 3,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
-                child: producto.imagenUrl != null &&
-                        producto.imagenUrl!.isNotEmpty
+            // Imagen - Altura fija 160px
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+              child: Container(
+                height: 160,
+                width: double.infinity,
+                color: Colors.grey[200],
+                child: urlImagen != null && urlImagen.isNotEmpty
                     ? Image.network(
-                        producto.imagenUrl!,
+                        urlImagen,
                         fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: 160,
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) {
                             return child;
@@ -53,6 +74,7 @@ class ProductoCard extends StatelessWidget {
                                     ? loadingProgress.cumulativeBytesLoaded /
                                         loadingProgress.expectedTotalBytes!
                                     : null,
+                                strokeWidth: 2,
                               ),
                             ),
                           );
@@ -78,86 +100,89 @@ class ProductoCard extends StatelessWidget {
                       ),
               ),
             ),
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Nombre del producto (título grande)
+            // Contenido - Debe caber en 160px (320px total - 160px imagen)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Nombre del producto - 2 líneas máximo
+                  Text(
+                    producto.nombre.isNotEmpty ? producto.nombre : 'Sin nombre',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      height: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  // Precio - Grande, bold, color azul
+                  Text(
+                    currencyFormat.format(producto.precio),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2196F3),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // Stock - Solo mostrar si stock > 0
+                  if (producto.stock > 0)
                     Text(
-                      producto.nombre.isNotEmpty ? producto.nombre : 'Sin nombre',
+                      'Stock: ${producto.stock}',
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    // Precio formateado
-                    Text(
-                      currencyFormat.format(producto.precio),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
+                        fontSize: 12,
+                        color: Color(0xFF757575),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    // Stock disponible
-                    Row(
-                      children: [
-                        Icon(
-                          producto.disponible
-                              ? Icons.check_circle
-                              : Icons.cancel,
-                          size: 16,
-                          color: producto.disponible
-                              ? Colors.green
-                              : Colors.red,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            producto.disponible
-                                ? 'Stock: ${producto.stock}'
-                                : 'Sin stock',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: producto.disponible
-                                  ? Colors.green
-                                  : Colors.red,
-                              fontWeight: FontWeight.w500,
+                  const SizedBox(height: 8),
+                  // Botón Agregar o Agotado - Altura fija 40px
+                  SizedBox(
+                    width: double.infinity,
+                    height: 40,
+                    child: estaAgotado
+                        ? OutlinedButton(
+                            onPressed: null,
+                            style: OutlinedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              side: const BorderSide(color: Color(0xFFBDBDBD)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    // Botón Agregar
-                    if (onAddToCart != null && producto.disponible) ...[
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: onAddToCart,
-                          icon: const Icon(Icons.shopping_cart, size: 18),
-                          label: const Text(
-                            'Agregar',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            backgroundColor: Theme.of(context).primaryColor,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                            child: const Text(
+                              'Agotado',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF757575),
+                              ),
+                            ),
+                          )
+                        : onAddToCart != null
+                            ? ElevatedButton(
+                                onPressed: onAddToCart,
+                                style: ElevatedButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  backgroundColor: const Color(0xFF2196F3),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Agregar',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                  ),
+                ],
               ),
             ),
           ],

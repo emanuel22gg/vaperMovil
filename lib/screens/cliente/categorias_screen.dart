@@ -51,9 +51,22 @@ class _CategoriasScreenState extends State<CategoriasScreen> {
   }
 
   void _navegarAProductos(Categoria categoria) {
+    if (categoria.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: Categoría sin ID'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ProductosScreen(categoria: categoria),
+        builder: (_) => ProductosScreen(
+          categoriaId: categoria.id!,
+          nombreCategoria: categoria.nombre,
+        ),
       ),
     );
   }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../models/categoria_model.dart';
 import '../../models/producto_model.dart';
 import '../../services/producto_service.dart';
 import '../../widgets/producto_card.dart';
@@ -8,11 +7,13 @@ import 'package:provider/provider.dart';
 
 /// Pantalla de productos por categoría
 class ProductosScreen extends StatefulWidget {
-  final Categoria categoria;
+  final int categoriaId;
+  final String nombreCategoria;
 
   const ProductosScreen({
     super.key,
-    required this.categoria,
+    required this.categoriaId,
+    required this.nombreCategoria,
   });
 
   @override
@@ -46,12 +47,17 @@ class _ProductosScreenState extends State<ProductosScreen> {
     });
 
     try {
-      final productos = await ProductoService.getProductos(
-        categoriaId: widget.categoria.id,
-      );
+      // Cargar todos los productos
+      final todosLosProductos = await ProductoService.getProductos();
+      
+      // Filtrar productos para mostrar SOLO los de esta categoría
+      final productosFiltrados = todosLosProductos
+          .where((p) => p.categoriaId == widget.categoriaId)
+          .toList();
+      
       setState(() {
-        _productos = productos;
-        _productosFiltrados = productos;
+        _productos = productosFiltrados;
+        _productosFiltrados = productosFiltrados;
         _isLoading = false;
       });
     } catch (e) {
@@ -99,18 +105,32 @@ class _ProductosScreenState extends State<ProductosScreen> {
     }
   }
 
+  // Función para determinar el número de columnas según el ancho de pantalla
+  int _getCrossAxisCount(double width) {
+    if (width > 1200) {
+      return 4; // Desktop
+    } else if (width > 600) {
+      return 3; // Tablet
+    } else {
+      return 2; // Móvil
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = _getCrossAxisCount(screenWidth);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.categoria.nombre),
+        title: Text(widget.nombreCategoria),
         backgroundColor: const Color(0xFF2196F3),
         foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -127,7 +147,10 @@ class _ProductosScreenState extends State<ProductosScreen> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                filled: true,
+                fillColor: Colors.grey[100],
               ),
+              onChanged: (_) => _filtrarProductos(),
             ),
           ),
           Expanded(
@@ -138,6 +161,12 @@ class _ProductosScreenState extends State<ProductosScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 64,
+                              color: Colors.red[300],
+                            ),
+                            const SizedBox(height: 16),
                             Text(
                               'Error: $_error',
                               style: const TextStyle(color: Colors.red),
@@ -154,17 +183,43 @@ class _ProductosScreenState extends State<ProductosScreen> {
                     : RefreshIndicator(
                         onRefresh: _cargarProductos,
                         child: _productosFiltrados.isEmpty
-                            ? const Center(
-                                child: Text('No se encontraron productos'),
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.inventory_2_outlined,
+                                      size: 80,
+                                      color: Colors.grey[400],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No hay productos en esta categoría',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Intenta buscar con otro término',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[500],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               )
                             : GridView.builder(
                                 padding: const EdgeInsets.all(16),
                                 gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: 16,
-                                  mainAxisSpacing: 16,
-                                  childAspectRatio: 0.7,
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  mainAxisExtent: 320, // Altura fija de 320px por card
                                 ),
                                 itemCount: _productosFiltrados.length,
                                 itemBuilder: (context, index) {

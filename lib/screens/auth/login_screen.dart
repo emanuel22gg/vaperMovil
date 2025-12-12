@@ -4,6 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/carrito_provider.dart';
 import '../cliente/categorias_screen.dart';
 import '../admin/pedidos_admin_screen.dart';
+import 'forgot_password_screen.dart';
 
 /// Pantalla de Login
 class LoginScreen extends StatefulWidget {
@@ -180,6 +181,17 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                       );
                     },
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ForgotPasswordScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('¿Olvidaste tu contraseña?'),
                   ),
                 ],
               ),
