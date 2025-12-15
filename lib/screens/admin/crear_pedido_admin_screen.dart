@@ -10,6 +10,7 @@ import '../../services/auth_service.dart';
 import '../../services/producto_service.dart';
 import '../../providers/pedido_provider.dart';
 import '../../widgets/producto_card.dart';
+import '../../utils/responsive.dart';
 
 /// Pantalla para crear pedido manualmente (Admin)
 class CrearPedidoAdminScreen extends StatefulWidget {
@@ -230,16 +231,44 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
     final pedidoProvider = context.read<PedidoProvider>();
 
     try {
+      // Obtener el ID del estado "Pendiente"
+      final estadoPendienteId = await pedidoProvider.obtenerEstadoPendienteId();
+      if (estadoPendienteId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No se pudo obtener el estado "Pendiente". Por favor, intenta nuevamente.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() {
+            _isCreando = false;
+          });
+        }
+        return;
+      }
 
-      // Crear pedido
+      // Crear pedido según el formato que espera la API
+      final ahora = DateTime.now();
+      final subtotal = _calcularTotal();
+      final envio = 0.0; // Para pedidos del admin, sin envío por defecto
+      final total = subtotal + envio;
+      
       final pedido = VentaPedido(
         usuarioId: _clienteSeleccionado!.id,
-        estadoId: 1, // En Revisión
-        fechaPedido: DateTime.now(),
-        total: _calcularTotal(),
+        estadoId: estadoPendienteId, // Pendiente
+        fechaCreacion: ahora,
+        fechaEntrega: null, // Se puede establecer después
+        subtotal: subtotal,
+        envio: envio,
+        total: total,
         direccionEntrega: _direccionController.text.trim().isNotEmpty
             ? _direccionController.text.trim()
             : _clienteSeleccionado!.direccion,
+        ciudadEntrega: null, // Se puede agregar después si es necesario
+        departamentoEntrega: null, // Se puede agregar después si es necesario
+        metodoPago: null, // Se puede establecer después
+        // Campos adicionales para uso interno
         telefonoContacto: _telefonoController.text.trim().isNotEmpty
             ? _telefonoController.text.trim()
             : _clienteSeleccionado!.telefono,
@@ -295,189 +324,203 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
         .map((entry) => _productos.firstWhere((p) => p.id == entry.key))
         .toList();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Crear Pedido'),
-        backgroundColor: const Color(0xFF9C27B0),
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Selección de Cliente
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = Responsive.gridCount(
+          width,
+          mobile: 2,
+          tablet: 3,
+          desktop: 4,
+        );
+        final padding = EdgeInsets.all(Responsive.pagePadding(width));
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Crear Pedido'),
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+          ),
+          body: SingleChildScrollView(
+            padding: padding,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: Responsive.maxWidthConstraint(),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Cliente',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _isLoadingClientes
-                        ? const Center(child: CircularProgressIndicator())
-                        : DropdownButtonFormField<Usuario>(
-                            initialValue: _clienteSeleccionado,
-                            decoration: const InputDecoration(
-                              labelText: 'Seleccionar cliente',
-                              border: OutlineInputBorder(),
+                    // Selección de Cliente
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Cliente',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            items: _clientes.map((cliente) {
-                              return DropdownMenuItem(
-                                value: cliente,
-                                child: Text('${cliente.nombre} - ${cliente.email}'),
-                              );
-                            }).toList(),
-                            onChanged: (cliente) {
-                              setState(() {
-                                _clienteSeleccionado = cliente;
-                                if (cliente != null) {
-                                  _direccionController.text =
-                                      cliente.direccion ?? '';
-                                  _telefonoController.text = cliente.telefono ?? '';
-                                }
-                              });
-                            },
+                            const SizedBox(height: 12),
+                            _isLoadingClientes
+                                ? const Center(child: CircularProgressIndicator())
+                                : DropdownButtonFormField<Usuario>(
+                                    initialValue: _clienteSeleccionado,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Seleccionar cliente',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    items: _clientes.map((cliente) {
+                                      return DropdownMenuItem(
+                                        value: cliente,
+                                        child: Text('${cliente.nombre} - ${cliente.email}'),
+                                      );
+                                    }).toList(),
+                                    onChanged: (cliente) {
+                                      setState(() {
+                                        _clienteSeleccionado = cliente;
+                                        if (cliente != null) {
+                                          _direccionController.text =
+                                              cliente.direccion ?? '';
+                                          _telefonoController.text = cliente.telefono ?? '';
+                                        }
+                                      });
+                                    },
+                                  ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Información adicional
+                    if (_clienteSeleccionado != null) ...[
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Información de Entrega',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _direccionController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Dirección de entrega',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _telefonoController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Teléfono de contacto',
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType: TextInputType.phone,
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _observacionesController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Observaciones (opcional)',
+                                  border: OutlineInputBorder(),
+                                ),
+                                maxLines: 3,
+                              ),
+                            ],
                           ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Información adicional
-            if (_clienteSeleccionado != null) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Información de Entrega',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _direccionController,
-                        decoration: const InputDecoration(
-                          labelText: 'Dirección de entrega',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _telefonoController,
-                        decoration: const InputDecoration(
-                          labelText: 'Teléfono de contacto',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.phone,
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _observacionesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Observaciones (opcional)',
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 3,
-                      ),
+                      const SizedBox(height: 16),
                     ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
 
-            // Búsqueda de productos
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Productos Disponibles',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    // Búsqueda de productos
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Productos Disponibles',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: 'Buscar productos...',
+                                prefixIcon: const Icon(Icons.search),
+                                suffixIcon: _searchController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                        },
+                                      )
+                                    : null,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Buscar productos...',
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  _searchController.clear();
-                                },
+                    const SizedBox(height: 16),
+
+                    // Lista de productos disponibles
+                    _isLoadingProductos
+                        ? const Center(child: CircularProgressIndicator())
+                        : _productosFiltrados.isEmpty
+                            ? const Center(
+                                child: Text('No hay productos disponibles'),
                               )
-                            : null,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
+                            : GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                  childAspectRatio: 0.72,
+                                ),
+                                itemCount: _productosFiltrados.length,
+                                itemBuilder: (context, index) {
+                                  final producto = _productosFiltrados[index];
+                                  final cantidadAgregada =
+                                      _productosAgregados[producto.id] ?? 0;
+                                  return ProductoCard(
+                                    producto: producto,
+                                    onAddToCart: producto.disponible
+                                        ? () => _agregarProducto(producto)
+                                        : null,
+                                    onTap: producto.disponible
+                                        ? () {
+                                            if (cantidadAgregada == 0) {
+                                              _agregarProducto(producto);
+                                            }
+                                          }
+                                        : null,
+                                  );
+                                },
+                              ),
 
-            // Lista de productos disponibles
-            _isLoadingProductos
-                ? const Center(child: CircularProgressIndicator())
-                : _productosFiltrados.isEmpty
-                    ? const Center(
-                        child: Text('No hay productos disponibles'),
-                      )
-                    : GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 0.7,
-                        ),
-                        itemCount: _productosFiltrados.length,
-                        itemBuilder: (context, index) {
-                          final producto = _productosFiltrados[index];
-                          final cantidadAgregada =
-                              _productosAgregados[producto.id] ?? 0;
-                          return ProductoCard(
-                            producto: producto,
-                            onAddToCart: producto.disponible
-                                ? () => _agregarProducto(producto)
-                                : null,
-                            onTap: producto.disponible
-                                ? () {
-                                    if (cantidadAgregada == 0) {
-                                      _agregarProducto(producto);
-                                    }
-                                  }
-                                : null,
-                          );
-                        },
-                      ),
-
-            const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
             // Productos agregados
             if (_productosAgregados.isNotEmpty) ...[
@@ -568,7 +611,7 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: Colors.purple,
+                              color: Colors.black,
                             ),
                           ),
                         ],
@@ -587,7 +630,7 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
                 child: ElevatedButton(
                   onPressed: _isCreando ? null : _crearPedido,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF9C27B0),
+                    backgroundColor: const Color(0xFFFFB74D), // Naranja claro
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -613,9 +656,13 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
                         ),
                 ),
               ),
-          ],
-        ),
-      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

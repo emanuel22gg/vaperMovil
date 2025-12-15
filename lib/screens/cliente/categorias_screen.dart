@@ -10,6 +10,7 @@ import 'carrito_screen.dart';
 import 'mis_pedidos_screen.dart';
 import '../auth/login_screen.dart';
 import '../auth/change_password_screen.dart';
+import '../../utils/responsive.dart';
 
 /// Pantalla de categorías (Cliente)
 class CategoriasScreen extends StatefulWidget {
@@ -126,11 +127,14 @@ class _CategoriasScreenState extends State<CategoriasScreen> {
   Widget build(BuildContext context) {
     final carritoProvider = context.watch<CarritoProvider>();
     final authProvider = context.watch<AuthProvider>();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = Responsive.gridCount(screenWidth);
+    final padding = Responsive.pagePadding(screenWidth);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Categorías'),
-        backgroundColor: const Color(0xFF2196F3),
+        backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -269,10 +273,10 @@ class _CategoriasScreenState extends State<CategoriasScreen> {
                           child: Text('No hay categorías disponibles'),
                         )
                       : GridView.builder(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(padding),
                           gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: crossAxisCount,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
                             childAspectRatio: 0.8,

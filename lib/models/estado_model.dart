@@ -11,9 +11,14 @@ class Estado {
   });
 
   factory Estado.fromJson(Map<String, dynamic> json) {
+    // La API puede devolver 'nombre' o 'nombreEstado'
+    final nombre = json['nombre'] as String? ?? 
+                   json['nombreEstado'] as String? ?? 
+                   '';
+    
     return Estado(
       id: json['id'] as int?,
-      nombre: json['nombre'] as String? ?? '',
+      nombre: nombre,
       descripcion: json['descripcion'] as String?,
     );
   }

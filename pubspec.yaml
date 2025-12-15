@@ -39,6 +39,9 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   intl: ^0.18.1
   cached_network_image: ^3.3.0
+  image_picker: ^1.0.7
+  file_picker: ^6.1.1
+  url_launcher: ^6.2.4
 
 dev_dependencies:
   flutter_test:

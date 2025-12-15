@@ -20,5 +20,13 @@ class ApiConfig {
 
   // Endpoints de Imágenes
   static const String imagenesEndpoint = '/api/Imagenes';
+
+  // Endpoints de Ubicación
+  static const String departamentosEndpoint = '/api/Departamentos';
+  static const String ciudadesEndpoint = '/api/Ciudades';
+
+  // Configuración de WhatsApp
+  static const String whatsappNumero = '573052359631'; // Número de WhatsApp de la empresa
+  static const String whatsappMensaje = 'Hola, adjunto el comprobante de pago de mi pedido.';
 }
 

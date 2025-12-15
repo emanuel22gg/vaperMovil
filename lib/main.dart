@@ -26,11 +26,74 @@ class MyApp extends StatelessWidget {
         title: 'Vaper Móvil',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          primarySwatch: Colors.blue,
           useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
+          // Tema en blanco y negro
+          colorScheme: const ColorScheme.light(
+            primary: Colors.black,
+            onPrimary: Colors.white,
+            secondary: Colors.black87,
+            onSecondary: Colors.white,
+            surface: Colors.white,
+            onSurface: Colors.black,
+            error: Colors.red,
+            onError: Colors.white,
             brightness: Brightness.light,
+          ),
+          scaffoldBackgroundColor: Colors.white,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            iconTheme: IconThemeData(color: Colors.white),
+          ),
+          cardTheme: CardThemeData(
+            color: Colors.white,
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.grey.shade300, width: 1),
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.black87),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade400),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.black, width: 2),
+            ),
+            labelStyle: const TextStyle(color: Colors.black87),
+          ),
+          dividerTheme: DividerThemeData(
+            color: Colors.grey.shade300,
+            thickness: 1,
+          ),
+          iconTheme: const IconThemeData(
+            color: Colors.black87,
+          ),
+          textTheme: const TextTheme(
+            displayLarge: TextStyle(color: Colors.black),
+            displayMedium: TextStyle(color: Colors.black),
+            displaySmall: TextStyle(color: Colors.black),
+            headlineLarge: TextStyle(color: Colors.black),
+            headlineMedium: TextStyle(color: Colors.black),
+            headlineSmall: TextStyle(color: Colors.black),
+            titleLarge: TextStyle(color: Colors.black),
+            titleMedium: TextStyle(color: Colors.black),
+            titleSmall: TextStyle(color: Colors.black),
+            bodyLarge: TextStyle(color: Colors.black87),
+            bodyMedium: TextStyle(color: Colors.black87),
+            bodySmall: TextStyle(color: Colors.black87),
+            labelLarge: TextStyle(color: Colors.black),
+            labelMedium: TextStyle(color: Colors.black87),
+            labelSmall: TextStyle(color: Colors.black87),
           ),
         ),
         home: const SplashScreen(),
@@ -95,10 +158,10 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.vaping_rooms,
               size: 100,
-              color: Theme.of(context).primaryColor,
+              color: Colors.black,
             ),
             const SizedBox(height: 24),
             const Text(

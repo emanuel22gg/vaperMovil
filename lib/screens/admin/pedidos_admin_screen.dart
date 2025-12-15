@@ -7,6 +7,7 @@ import 'pedido_detalle_admin_screen.dart';
 import 'crear_pedido_admin_screen.dart';
 import '../auth/login_screen.dart';
 import '../auth/change_password_screen.dart';
+import '../../utils/responsive.dart';
 
 /// Pantalla de pedidos (Administrador)
 class PedidosAdminScreen extends StatefulWidget {
@@ -130,11 +131,14 @@ class _PedidosAdminScreenState extends State<PedidosAdminScreen> {
     final pedidoProvider = context.watch<PedidoProvider>();
     final authProvider = context.watch<AuthProvider>();
     final pedidosFiltrados = _getPedidosFiltrados();
+    final width = MediaQuery.of(context).size.width;
+    final paddingValue = Responsive.pagePadding(width);
+    final horizontalPadding = EdgeInsets.symmetric(horizontal: paddingValue);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestión de Pedidos'),
-        backgroundColor: const Color(0xFF9C27B0),
+        backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         actions: [
           PopupMenuButton(
@@ -205,7 +209,12 @@ class _PedidosAdminScreenState extends State<PedidosAdminScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(
+              paddingValue,
+              paddingValue,
+              paddingValue,
+              12,
+            ),
             child: Column(
               children: [
                 TextField(
@@ -303,13 +312,18 @@ class _PedidosAdminScreenState extends State<PedidosAdminScreen> {
                                 ),
                               )
                             : ListView.builder(
+                                padding: horizontalPadding,
                                 itemCount: pedidosFiltrados.length,
                                 itemBuilder: (context, index) {
                                   final pedido = pedidosFiltrados[index];
-                                  return PedidoCard(
-                                    pedido: pedido,
-                                    onTap: () => _verDetalle(pedido.id!),
-                                    showCliente: true,
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: PedidoCard(
+                                      pedido: pedido,
+                                      onTap: () => _verDetalle(pedido.id!),
+                                      showCliente: true,
+                                      allowEstadoChange: true,
+                                    ),
                                   );
                                 },
                               ),

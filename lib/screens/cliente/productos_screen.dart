@@ -4,6 +4,7 @@ import '../../services/producto_service.dart';
 import '../../widgets/producto_card.dart';
 import '../../providers/carrito_provider.dart';
 import 'package:provider/provider.dart';
+import '../../utils/responsive.dart';
 
 /// Pantalla de productos por categoría
 class ProductosScreen extends StatefulWidget {
@@ -105,32 +106,28 @@ class _ProductosScreenState extends State<ProductosScreen> {
     }
   }
 
-  // Función para determinar el número de columnas según el ancho de pantalla
-  int _getCrossAxisCount(double width) {
-    if (width > 1200) {
-      return 4; // Desktop
-    } else if (width > 600) {
-      return 3; // Tablet
-    } else {
-      return 2; // Móvil
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final crossAxisCount = _getCrossAxisCount(screenWidth);
+    final crossAxisCount = Responsive.gridCount(screenWidth);
+    final horizontalPadding = Responsive.pagePadding(screenWidth);
+    final cardHeight = screenWidth >= Responsive.desktopBreakpoint
+        ? 360.0
+        : (screenWidth >= Responsive.tabletBreakpoint ? 340.0 : 320.0);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.nombreCategoria),
-        backgroundColor: const Color(0xFF2196F3),
+        backgroundColor: Colors.black,
         foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: horizontalPadding,
+              vertical: 12,
+            ),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -213,13 +210,13 @@ class _ProductosScreenState extends State<ProductosScreen> {
                                 ),
                               )
                             : GridView.builder(
-                                padding: const EdgeInsets.all(16),
+                                padding: EdgeInsets.all(horizontalPadding),
                                 gridDelegate:
                                     SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: crossAxisCount,
                                   crossAxisSpacing: 12,
                                   mainAxisSpacing: 12,
-                                  mainAxisExtent: 320, // Altura fija de 320px por card
+                                  mainAxisExtent: cardHeight,
                                 ),
                                 itemCount: _productosFiltrados.length,
                                 itemBuilder: (context, index) {
