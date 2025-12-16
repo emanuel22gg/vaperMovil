@@ -3,16 +3,21 @@ import '../models/venta_pedido_model.dart';
 import '../models/detalle_pedido_model.dart';
 import '../models/estado_model.dart';
 import '../services/pedido_service.dart';
+import '../services/auth_service.dart';
+import '../models/usuario_model.dart';
 
 /// Provider de pedidos
 class PedidoProvider extends ChangeNotifier {
   List<VentaPedido> _pedidos = [];
   List<Estado> _estados = [];
+  final Map<int, List<DetallePedido>> _detallesCache = {};
   bool _isLoading = false;
   String? _error;
 
   List<VentaPedido> get pedidos => List.unmodifiable(_pedidos);
   List<Estado> get estados => List.unmodifiable(_estados);
+  Map<int, List<DetallePedido>> get detallesCache =>
+      Map.unmodifiable(_detallesCache);
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -23,7 +28,37 @@ class PedidoProvider extends ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      _pedidos = await PedidoService.getPedidos(usuarioId: usuarioId);
+      final pedidos = await PedidoService.getPedidos(usuarioId: usuarioId);
+
+      // Si el backend no devuelve el objeto usuario, lo resolvemos manualmente
+      final idsFaltantes = pedidos
+          .where((p) => p.usuario == null && p.usuarioId != null)
+          .map((p) => p.usuarioId!)
+          .toSet();
+
+      final Map<int, Usuario> usuariosCargados = {};
+      if (idsFaltantes.isNotEmpty) {
+        await Future.wait(idsFaltantes.map((id) async {
+          try {
+            usuariosCargados[id] = await AuthService.getUsuarioById(id);
+          } catch (e) {
+            debugPrint(
+              '❌ PedidoProvider: No se pudo obtener el usuario $id: $e',
+            );
+          }
+        }));
+      }
+
+      _pedidos = pedidos.map((pedido) {
+        final usuario = pedido.usuario ??
+            (pedido.usuarioId != null
+                ? usuariosCargados[pedido.usuarioId!]
+                : null);
+        return usuario != null ? pedido.copyWith(usuario: usuario) : pedido;
+      }).toList();
+
+      // Limpiar caché de detalles para evitar inconsistencias
+      _detallesCache.clear();
 
       _isLoading = false;
       notifyListeners();
@@ -173,6 +208,11 @@ class PedidoProvider extends ChangeNotifier {
   /// Obtener detalles de un pedido
   Future<List<DetallePedido>> getDetallesPedido(int pedidoId) async {
     try {
+      // Retornar desde caché si ya existe
+      if (_detallesCache.containsKey(pedidoId)) {
+        return _detallesCache[pedidoId]!;
+      }
+
       return await PedidoService.getDetallesPedido(pedidoId);
     } catch (e) {
       _error = e.toString();
