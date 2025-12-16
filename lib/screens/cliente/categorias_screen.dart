@@ -290,10 +290,10 @@ class _CategoriasScreenState extends State<CategoriasScreen> {
                           },
                         ),
                 ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _navegarACarrito,
         backgroundColor: const Color(0xFF4CAF50),
-        child: Stack(
+        icon: Stack(
           children: [
             const Icon(Icons.shopping_cart, color: Colors.white),
             if (carritoProvider.cantidadTotal > 0)
@@ -301,20 +301,20 @@ class _CategoriasScreenState extends State<CategoriasScreen> {
                 right: 0,
                 top: 0,
                 child: Container(
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(2),
                   decoration: const BoxDecoration(
                     color: Colors.red,
                     shape: BoxShape.circle,
                   ),
                   constraints: const BoxConstraints(
-                    minWidth: 20,
-                    minHeight: 20,
+                    minWidth: 14,
+                    minHeight: 14,
                   ),
                   child: Text(
                     '${carritoProvider.cantidadTotal}',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
@@ -322,6 +322,13 @@ class _CategoriasScreenState extends State<CategoriasScreen> {
                 ),
               ),
           ],
+        ),
+        label: Text(
+          'Total: \$${carritoProvider.precioTotal.toStringAsFixed(0)}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );

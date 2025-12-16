@@ -26,15 +26,34 @@ class PedidoCard extends StatelessWidget {
     return nombreEstado.toLowerCase().trim() == 'entregado';
   }
 
+  bool _esEstadoCancelado(VentaPedido pedido, PedidoProvider provider) {
+    // Verificar si el pedido está en estado "cancelado"
+    final nombreEstado = _obtenerNombreEstado(pedido, provider);
+    return nombreEstado.toLowerCase().trim() == 'cancelado';
+  }
+
   void _cambiarEstado(BuildContext context) async {
     final pedidoProvider = context.read<PedidoProvider>();
     
-    // Verificar si el pedido está entregado
+    // Verificar si el pedido está entregado o cancelado
     if (_esEstadoEntregado(pedido, pedidoProvider)) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('No se puede cambiar el estado de un pedido entregado.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_esEstadoCancelado(pedido, pedidoProvider)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se puede cambiar el estado de un pedido cancelado.'),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 3),
           ),
@@ -270,13 +289,15 @@ class PedidoCard extends StatelessWidget {
                           builder: (context) {
                             final pedidoProvider = context.watch<PedidoProvider>();
                             final esEntregado = _esEstadoEntregado(pedido, pedidoProvider);
+                            final esCancelado = _esEstadoCancelado(pedido, pedidoProvider);
+                            final esBloqueado = esEntregado || esCancelado;
                             return IconButton(
                               icon: const Icon(Icons.edit, size: 18),
-                              color: esEntregado ? Colors.grey[400] : Colors.grey[600],
+                              color: esBloqueado ? Colors.grey[400] : Colors.grey[600],
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
-                              onPressed: esEntregado ? null : () => _cambiarEstado(context),
-                              tooltip: esEntregado ? 'No se puede cambiar el estado de un pedido entregado' : 'Cambiar estado',
+                              onPressed: esBloqueado ? null : () => _cambiarEstado(context),
+                              tooltip: esBloqueado ? 'No se puede cambiar el estado de un pedido finalizado o cancelado' : 'Cambiar estado',
                             );
                           },
                         ),

@@ -4,6 +4,7 @@ import '../models/detalle_pedido_model.dart';
 import '../models/estado_model.dart';
 import '../services/pedido_service.dart';
 import '../services/auth_service.dart';
+import '../services/producto_service.dart';
 import '../models/usuario_model.dart';
 
 /// Provider de pedidos
@@ -28,7 +29,7 @@ class PedidoProvider extends ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      final pedidos = await PedidoService.getPedidos(usuarioId: usuarioId);
+      var pedidos = await PedidoService.getPedidos(usuarioId: usuarioId);
 
       // Si el backend no devuelve el objeto usuario, lo resolvemos manualmente
       final idsFaltantes = pedidos
@@ -47,6 +48,12 @@ class PedidoProvider extends ChangeNotifier {
             );
           }
         }));
+      }
+
+      // Filtrar localmente por usuarioId si se especificó
+      // Esto es necesario si el backend ignora el parámetro de consulta
+      if (usuarioId != null) {
+        pedidos = pedidos.where((p) => p.usuarioId == usuarioId).toList();
       }
 
       _pedidos = pedidos.map((pedido) {
@@ -213,7 +220,52 @@ class PedidoProvider extends ChangeNotifier {
         return _detallesCache[pedidoId]!;
       }
 
-      return await PedidoService.getDetallesPedido(pedidoId);
+      final detalles = await PedidoService.getDetallesPedido(pedidoId);
+      
+      // FILTRADO DE SEGURIDAD:
+      // Filtrar solo los detalles que corresponden a este pedidoId.
+      // Esto es necesario porque a veces la API devuelve detalles de otros pedidos
+      // si el filtrado en backend no funciona correctamente.
+      final detallesFiltrados = detalles.where((d) => d.ventaPedidoId == pedidoId).toList();
+      
+      // Enriquecer detalles con información del producto
+      final List<DetallePedido> detallesEnriquecidos = [];
+      
+      // Obtener IDs únicos de productos
+      final productoIds = detallesFiltrados
+          .map((d) => d.productoId)
+          .where((id) => id != null)
+          .toSet()
+          .cast<int>();
+          
+      final Map<int, dynamic> productosMap = {};
+      
+      if (productoIds.isNotEmpty) {
+        debugPrint('🔵 PedidoProvider: Cargando información para ${productoIds.length} productos...');
+        await Future.wait(productoIds.map((id) async {
+           try {
+            // Importar ProductoService si no está (asumimos que está importado o lo añadiremos)
+             final producto = await ProductoService.getProductoById(id);
+             productosMap[id] = producto;
+           } catch (e) {
+             debugPrint('⚠️ PedidoProvider: Error cargando producto $id: $e');
+           }
+        }));
+      }
+
+      // Asignar productos a detalles
+      for (var detalle in detallesFiltrados) {
+        if (detalle.productoId != null && productosMap.containsKey(detalle.productoId)) {
+           detallesEnriquecidos.add(detalle.copyWith(
+             producto: productosMap[detalle.productoId]
+           ));
+        } else {
+           detallesEnriquecidos.add(detalle);
+        }
+      }
+
+      _detallesCache[pedidoId] = detallesEnriquecidos;
+      return detallesEnriquecidos;
     } catch (e) {
       _error = e.toString();
       notifyListeners();

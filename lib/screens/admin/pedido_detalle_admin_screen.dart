@@ -61,17 +61,36 @@ class _PedidoDetalleAdminScreenState
     return nombreEstado.toLowerCase().trim() == 'entregado';
   }
 
+  bool _esEstadoCancelado(VentaPedido pedido, PedidoProvider provider) {
+    // Verificar si el pedido está en estado "cancelado"
+    final nombreEstado = _obtenerNombreEstado(pedido, provider);
+    return nombreEstado.toLowerCase().trim() == 'cancelado';
+  }
+
   Future<void> _cambiarEstado() async {
     final pedidoProvider = context.read<PedidoProvider>();
     final pedido = pedidoProvider.pedidos
         .firstWhere((p) => p.id == widget.pedidoId);
 
-    // Verificar si el pedido está entregado
+    // Verificar si el pedido está entregado o cancelado
     if (_esEstadoEntregado(pedido, pedidoProvider)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('No se puede cambiar el estado de un pedido entregado.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_esEstadoCancelado(pedido, pedidoProvider)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se puede cambiar el estado de un pedido cancelado.'),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 3),
           ),
@@ -242,7 +261,7 @@ class _PedidoDetalleAdminScreenState
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+          onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancelar'),
           ),
           TextButton(
@@ -354,10 +373,13 @@ class _PedidoDetalleAdminScreenState
                                 builder: (context) {
                                   final pedidoProvider = context.watch<PedidoProvider>();
                                   final esEntregado = _esEstadoEntregado(pedido, pedidoProvider);
+                                  final esCancelado = _esEstadoCancelado(pedido, pedidoProvider);
+                                  final esBloqueado = esEntregado || esCancelado;
+                                  
                                   return CustomButton(
                                     text: 'Cambiar Estado',
-                                    onPressed: esEntregado ? null : _cambiarEstado,
-                                    backgroundColor: esEntregado ? Colors.grey : const Color(0xFFFF9800),
+                                    onPressed: esBloqueado ? null : _cambiarEstado,
+                                    backgroundColor: esBloqueado ? Colors.grey : const Color(0xFFFF9800),
                                     icon: Icons.edit,
                                   );
                                 },
@@ -481,13 +503,20 @@ class _PedidoDetalleAdminScreenState
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              Text(
-                                currencyFormat.format(pedido.total),
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
+                              Builder(
+                                builder: (context) {
+                                  // Calcular total sumando los subtotales de los detalles
+                                  final totalCalculado = _detalles.fold(0.0, (sum, item) => sum + item.subtotal);
+                                  
+                                  return Text(
+                                    currencyFormat.format(totalCalculado > 0 ? totalCalculado : pedido.total),
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),

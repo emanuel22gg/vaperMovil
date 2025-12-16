@@ -19,33 +19,28 @@ class CategoriaCard extends StatelessWidget {
     // Obtener URL de imagen usando idImagen
     String? urlImagen;
     
-    // Debug: Log de la categoría
-    debugPrint('🔵 CategoriaCard: Categoría "${categoria.nombre}" - idImagen: ${categoria.idImagen}');
-    
     if (categoria.idImagen != null) {
       urlImagen = CategoriaService.getUrlImagen(categoria.idImagen);
-      debugPrint('🔵 CategoriaCard: Buscando imagen con idImagen ${categoria.idImagen} -> URL: $urlImagen');
     }
     
-    debugPrint('🔵 CategoriaCard: URL final de imagen: $urlImagen');
-
     return Card(
-      elevation: 4,
+      elevation: 2, // Sombra más sutil
+      shadowColor: Colors.black.withOpacity(0.1),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16), // Bordes más redondeados
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Imagen - Ocupa 60% de la card
+            // Imagen - Ocupa 70% de la card para dar más protagonismo visual
             Expanded(
-              flex: 6,
+              flex: 7,
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
+                  top: Radius.circular(16),
                 ),
                 child: urlImagen != null && urlImagen.isNotEmpty
                     ? Image.network(
@@ -56,73 +51,68 @@ class CategoriaCard extends StatelessWidget {
                             return child;
                           }
                           return Container(
-                            color: Colors.grey[200],
+                            color: Colors.grey[100],
                             child: Center(
                               child: CircularProgressIndicator(
                                 value: loadingProgress.expectedTotalBytes != null
                                     ? loadingProgress.cumulativeBytesLoaded /
                                         loadingProgress.expectedTotalBytes!
                                     : null,
+                                strokeWidth: 2,
                               ),
                             ),
                           );
                         },
                         errorBuilder: (context, error, stackTrace) {
-                          debugPrint('❌ CategoriaCard: Error al cargar imagen: $error');
                           return Container(
-                            color: Colors.grey[300],
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                            ),
                             child: const Icon(
-                              Icons.category,
-                              size: 50,
+                              Icons.image_not_supported_outlined,
+                              size: 40,
                               color: Colors.grey,
                             ),
                           );
                         },
                       )
                     : Container(
-                        color: Colors.grey[300],
-                        child: const Icon(
-                          Icons.category,
-                          size: 50,
-                          color: Colors.grey,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          // Gradiente sutil para placeholder
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.grey[100]!,
+                              Colors.grey[200]!,
+                            ],
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.category_outlined,
+                          size: 48,
+                          color: Colors.grey[400],
                         ),
                       ),
               ),
             ),
-            // Texto - Ocupa 40% de la card
+            // Texto - Ocupa 30% de la card
             Expanded(
-              flex: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // NOMBRE - Primero, grande y bold
-                    Text(
-                      categoria.nombre,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    // DESCRIPCIÓN - Después, más pequeña y gris
-                    if (categoria.descripcion != null &&
-                        categoria.descripcion!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        categoria.descripcion!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
+              flex: 3,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                alignment: Alignment.center,
+                child: Text(
+                  categoria.nombre,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.3,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),

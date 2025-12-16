@@ -139,10 +139,10 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
     });
   }
 
-  void _agregarProducto(Producto producto) {
+  void _agregarProducto(Producto producto, {int cantidad = 1}) {
     setState(() {
       _productosAgregados[producto.id!] =
-          (_productosAgregados[producto.id!] ?? 0) + 1;
+          (_productosAgregados[producto.id!] ?? 0) + cantidad;
     });
   }
 
@@ -372,10 +372,14 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
                                       labelText: 'Seleccionar cliente',
                                       border: OutlineInputBorder(),
                                     ),
+                                    isExpanded: true,
                                     items: _clientes.map((cliente) {
                                       return DropdownMenuItem(
                                         value: cliente,
-                                        child: Text('${cliente.nombre} - ${cliente.email}'),
+                                        child: Text(
+                                          '${cliente.nombre} - ${cliente.email}',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       );
                                     }).toList(),
                                     onChanged: (cliente) {
@@ -497,7 +501,7 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
                                   crossAxisCount: crossAxisCount,
                                   crossAxisSpacing: 16,
                                   mainAxisSpacing: 16,
-                                  childAspectRatio: 0.72,
+                                  childAspectRatio: 0.50,
                                 ),
                                 itemCount: _productosFiltrados.length,
                                 itemBuilder: (context, index) {
@@ -507,7 +511,7 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
                                   return ProductoCard(
                                     producto: producto,
                                     onAddToCart: producto.disponible
-                                        ? () => _agregarProducto(producto)
+                                        ? (cantidad) => _agregarProducto(producto, cantidad: cantidad)
                                         : null,
                                     onTap: producto.disponible
                                         ? () {

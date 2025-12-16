@@ -4,9 +4,9 @@ import '../models/producto_model.dart';
 import '../services/producto_service.dart';
 
 /// Card de producto
-class ProductoCard extends StatelessWidget {
+class ProductoCard extends StatefulWidget {
   final Producto producto;
-  final VoidCallback? onAddToCart;
+  final Function(int quantity)? onAddToCart;
   final VoidCallback? onTap;
 
   const ProductoCard({
@@ -17,21 +17,44 @@ class ProductoCard extends StatelessWidget {
   });
 
   @override
+  State<ProductoCard> createState() => _ProductoCardState();
+}
+
+class _ProductoCardState extends State<ProductoCard> {
+  int _quantity = 1;
+
+  void _incrementQuantity() {
+    if (_quantity < widget.producto.stock) {
+      setState(() {
+        _quantity++;
+      });
+    }
+  }
+
+  void _decrementQuantity() {
+    if (_quantity > 1) {
+      setState(() {
+        _quantity--;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
     
     // Obtener URL de imagen usando idImagen o imagenUrl como fallback
     String? urlImagen;
-    if (producto.idImagen != null) {
-      urlImagen = ProductoService.getUrlImagen(producto.idImagen);
+    if (widget.producto.idImagen != null) {
+      urlImagen = ProductoService.getUrlImagen(widget.producto.idImagen);
     }
     // Si no se encontró por idImagen, usar imagenUrl como fallback
     if (urlImagen == null || urlImagen.isEmpty) {
-      urlImagen = producto.imagenUrl;
+      urlImagen = widget.producto.imagenUrl;
     }
 
     // Determinar estado del stock
-    final bool estaAgotado = producto.stock == 0;
+    final bool estaAgotado = widget.producto.stock == 0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -45,7 +68,7 @@ class ProductoCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: InkWell(
-            onTap: onTap,
+            onTap: widget.onTap,
             borderRadius: BorderRadius.circular(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -113,7 +136,7 @@ class ProductoCard extends StatelessWidget {
                     children: [
                       // Nombre del producto - 2 líneas máximo
                       Text(
-                        producto.nombre.isNotEmpty ? producto.nombre : 'Sin nombre',
+                        widget.producto.nombre.isNotEmpty ? widget.producto.nombre : 'Sin nombre',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -125,7 +148,7 @@ class ProductoCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       // Precio - Grande, bold, color azul
                       Text(
-                        currencyFormat.format(producto.precio),
+                        currencyFormat.format(widget.producto.precio),
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -134,15 +157,37 @@ class ProductoCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       // Stock - Solo mostrar si stock > 0
-                      if (producto.stock > 0)
-                        Text(
-                          'Stock: ${producto.stock}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF757575),
-                          ),
-                        ),
+                      const SizedBox(height: 4),
+                      // Stock -> Eliminado por solicitud del usuario
                       const SizedBox(height: 8),
+                      
+                      // Controles de cantidad
+                      if (!estaAgotado) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildQuantityButton(
+                              icon: Icons.remove,
+                              onPressed: _quantity > 1 ? _decrementQuantity : null,
+                            ),
+                            Text(
+                              '$_quantity',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            _buildQuantityButton(
+                              icon: Icons.add,
+                              onPressed: _quantity < widget.producto.stock 
+                                  ? _incrementQuantity 
+                                  : null,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
                       // Botón Agregar o Agotado - Altura fija 40px
                       SizedBox(
                         width: double.infinity,
@@ -165,9 +210,9 @@ class ProductoCard extends StatelessWidget {
                                   ),
                                 ),
                               )
-                            : onAddToCart != null
+                            : widget.onAddToCart != null
                                 ? ElevatedButton(
-                                    onPressed: onAddToCart,
+                                    onPressed: () => widget.onAddToCart!(_quantity),
                                     style: ElevatedButton.styleFrom(
                                       padding: EdgeInsets.zero,
                                       backgroundColor: const Color(0xFF2196F3),
@@ -194,6 +239,26 @@ class ProductoCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildQuantityButton({
+    required IconData icon,
+    VoidCallback? onPressed,
+  }) {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: onPressed != null ? Colors.grey[200] : Colors.grey[100],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: IconButton(
+        icon: Icon(icon, size: 16),
+        onPressed: onPressed,
+        padding: EdgeInsets.zero,
+        color: onPressed != null ? Colors.black : Colors.grey,
+      ),
     );
   }
 }

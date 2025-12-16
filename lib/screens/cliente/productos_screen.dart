@@ -5,6 +5,7 @@ import '../../widgets/producto_card.dart';
 import '../../providers/carrito_provider.dart';
 import 'package:provider/provider.dart';
 import '../../utils/responsive.dart';
+import 'carrito_screen.dart';
 
 /// Pantalla de productos por categoría
 class ProductosScreen extends StatefulWidget {
@@ -84,14 +85,14 @@ class _ProductosScreenState extends State<ProductosScreen> {
     });
   }
 
-  void _agregarAlCarrito(Producto producto) {
+  void _agregarAlCarrito(Producto producto, {int cantidad = 1}) {
     final carritoProvider = context.read<CarritoProvider>();
 
     try {
-      carritoProvider.agregarProducto(producto);
+      carritoProvider.agregarProducto(producto, cantidad: cantidad);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${producto.nombre} agregado al carrito'),
+          content: Text('$cantidad x ${producto.nombre} agregado al carrito'),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
         ),
@@ -106,14 +107,24 @@ class _ProductosScreenState extends State<ProductosScreen> {
     }
   }
 
+  void _navegarACarrito() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const CarritoScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final carritoProvider = context.watch<CarritoProvider>();
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = Responsive.gridCount(screenWidth);
     final horizontalPadding = Responsive.pagePadding(screenWidth);
+    // Aumentar altura de la tarjeta para acomodar los controles de cantidad
     final cardHeight = screenWidth >= Responsive.desktopBreakpoint
-        ? 360.0
-        : (screenWidth >= Responsive.tabletBreakpoint ? 340.0 : 320.0);
+        ? 380.0
+        : (screenWidth >= Responsive.tabletBreakpoint ? 360.0 : 340.0);
 
     return Scaffold(
       appBar: AppBar(
@@ -224,7 +235,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
                                   return ProductoCard(
                                     producto: producto,
                                     onAddToCart: producto.disponible
-                                        ? () => _agregarAlCarrito(producto)
+                                        ? (cantidad) => _agregarAlCarrito(producto, cantidad: cantidad)
                                         : null,
                                   );
                                 },
@@ -232,6 +243,47 @@ class _ProductosScreenState extends State<ProductosScreen> {
                       ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _navegarACarrito,
+        backgroundColor: const Color(0xFF4CAF50),
+        icon: Stack(
+          children: [
+            const Icon(Icons.shopping_cart, color: Colors.white),
+            if (carritoProvider.cantidadTotal > 0)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 14,
+                    minHeight: 14,
+                  ),
+                  child: Text(
+                    '${carritoProvider.cantidadTotal}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        label: Text(
+          'Total: \$${carritoProvider.precioTotal.toStringAsFixed(0)}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

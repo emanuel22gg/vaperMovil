@@ -50,13 +50,31 @@ class _PedidosAdminScreenState extends State<PedidosAdminScreen> {
 
   List<dynamic> _getPedidosFiltrados() {
     final pedidoProvider = context.read<PedidoProvider>();
-    var pedidos = pedidoProvider.pedidos;
+    var pedidos = pedidoProvider.pedidos.toList(); // Crear copia para no modificar original
 
     // Filtrar por estado
     if (_filtroEstado != null && _filtroEstado!.isNotEmpty) {
-      pedidos = pedidos
-          .where((p) => p.estado?.nombre == _filtroEstado)
-          .toList();
+      pedidos = pedidos.where((p) {
+        String nombreEstado = '';
+        
+        // Intentar obtener nombre del objeto estado
+        if (p.estado?.nombre != null && p.estado!.nombre.isNotEmpty) {
+          nombreEstado = p.estado!.nombre;
+        } 
+        // Si no, buscar en la lista de estados del provider usando estadoId
+        else if (p.estadoId != null && pedidoProvider.estados.isNotEmpty) {
+          try {
+            final estado = pedidoProvider.estados.firstWhere(
+              (e) => e.id == p.estadoId
+            );
+            nombreEstado = estado.nombre;
+          } catch (_) {
+            // Si no se encuentra el estado, asumir nombre vacío
+          }
+        }
+        
+        return nombreEstado == _filtroEstado;
+      }).toList();
     }
 
     // Filtrar por búsqueda
@@ -69,6 +87,9 @@ class _PedidosAdminScreenState extends State<PedidosAdminScreen> {
               p.id.toString().contains(query))
           .toList();
     }
+    
+    // Ordenar por ID descendente (más recientes primero)
+    pedidos.sort((a, b) => (b.id ?? 0).compareTo(a.id ?? 0));
 
     return pedidos;
   }
