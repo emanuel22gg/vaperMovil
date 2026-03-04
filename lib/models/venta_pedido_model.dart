@@ -48,36 +48,61 @@ class VentaPedido {
   });
 
   factory VentaPedido.fromJson(Map<String, dynamic> json) {
+    // Mapear campos con fallbacks para PascalCase
+    final int? id = json['id'] as int? ?? json['Id'] as int?;
+    final int? usuarioId = json['usuarioId'] as int? ?? json['UsuarioId'] as int?;
+    
+    final usuarioJson = json['usuario'] ?? json['Usuario'];
+    final Usuario? usuario = usuarioJson != null
+        ? Usuario.fromJson(usuarioJson as Map<String, dynamic>)
+        : null;
+
+    final int? estadoId = json['estadoId'] as int? ?? json['EstadoId'] as int?;
+    
+    final estadoJson = json['estado'] ?? json['Estado'];
+    final Estado? estado = estadoJson != null
+        ? Estado.fromJson(estadoJson as Map<String, dynamic>)
+        : null;
+
+    final String? fechaCreacionRaw = json['fechaCreacion'] as String? ?? 
+                                     json['FechaCreacion'] as String? ??
+                                     json['fechaPedido'] as String? ??
+                                     json['FechaPedido'] as String?;
+    
+    final DateTime? fechaCreacion = fechaCreacionRaw != null
+        ? DateTime.parse(fechaCreacionRaw)
+        : null;
+
+    final String? fechaEntregaRaw = json['fechaEntrega'] as String? ?? 
+                                     json['FechaEntrega'] as String?;
+                                     
+    final DateTime? fechaEntrega = fechaEntregaRaw != null
+        ? DateTime.parse(fechaEntregaRaw)
+        : null;
+
+    final double subtotal = (json['subtotal'] as num? ?? json['Subtotal'] as num?)?.toDouble() ?? 0.0;
+    final double envio = (json['envio'] as num? ?? json['Envio'] as num?)?.toDouble() ?? 0.0;
+    final double total = (json['total'] as num? ?? json['Total'] as num?)?.toDouble() ?? 0.0;
+
     return VentaPedido(
-      id: json['id'] as int?,
-      usuarioId: json['usuarioId'] as int?,
-      usuario: json['usuario'] != null
-          ? Usuario.fromJson(json['usuario'] as Map<String, dynamic>)
-          : null,
-      estadoId: json['estadoId'] as int?,
-      estado: json['estado'] != null
-          ? Estado.fromJson(json['estado'] as Map<String, dynamic>)
-          : null,
-      fechaCreacion: json['fechaCreacion'] != null
-          ? DateTime.parse(json['fechaCreacion'] as String)
-          : (json['fechaPedido'] != null
-              ? DateTime.parse(json['fechaPedido'] as String)
-              : null),
-      fechaEntrega: json['fechaEntrega'] != null
-          ? DateTime.parse(json['fechaEntrega'] as String)
-          : null,
-      subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
-      envio: (json['envio'] as num?)?.toDouble() ?? 0.0,
-      total: (json['total'] as num?)?.toDouble() ?? 0.0,
-      direccionEntrega: json['direccionEntrega'] as String?,
-      ciudadEntrega: json['ciudadEntrega'] as String?,
-      departamentoEntrega: json['departamentoEntrega'] as String?,
-      metodoPago: json['metodoPago'] as String?,
-      // Campos adicionales para compatibilidad
-      tipoEntrega: json['tipoEntrega'] as String?,
-      telefonoContacto: json['telefonoContacto'] as String?,
-      observaciones: json['observaciones'] as String?,
-      comprobanteUrl: json['comprobanteUrl'] as String?,
+      id: id,
+      usuarioId: usuarioId,
+      usuario: usuario,
+      estadoId: estadoId,
+      estado: estado,
+      fechaCreacion: fechaCreacion,
+      fechaEntrega: fechaEntrega,
+      subtotal: subtotal,
+      envio: envio,
+      total: total,
+      direccionEntrega: json['direccionEntrega'] as String? ?? json['DireccionEntrega'] as String?,
+      ciudadEntrega: json['ciudadEntrega'] as String? ?? json['CiudadEntrega'] as String?,
+      departamentoEntrega: json['departamentoEntrega'] as String? ?? json['DepartamentoEntrega'] as String?,
+      metodoPago: json['metodoPago'] as String? ?? json['MetodoPago'] as String?,
+      tipoEntrega: json['tipoEntrega'] as String? ?? json['TipoEntrega'] as String?,
+      telefonoContacto: json['telefonoContacto'] as String? ?? json['TelefonoContacto'] as String?,
+      observaciones: json['observaciones'] as String? ?? json['Observaciones'] as String?,
+      comprobanteUrl: json['comprobanteUrl'] as String? ?? json['ComprobanteUrl'] as String?,
     );
   }
 

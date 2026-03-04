@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/categoria_model.dart';
 import '../services/categoria_service.dart';
+import '../utils/responsive.dart';
 
 /// Card de categoría
 class CategoriaCard extends StatelessWidget {
@@ -18,14 +18,14 @@ class CategoriaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Obtener URL de imagen usando idImagen
     String? urlImagen;
-    
+
     if (categoria.idImagen != null) {
       urlImagen = CategoriaService.getUrlImagen(categoria.idImagen);
     }
-    
+
     return Card(
       elevation: 2, // Sombra más sutil
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withAlpha((0.1 * 255).round()),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16), // Bordes más redondeados
       ),
@@ -68,9 +68,9 @@ class CategoriaCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: Colors.grey[100],
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.image_not_supported_outlined,
-                              size: 40,
+                              size: Responsive.iconSize(context, 40),
                               color: Colors.grey,
                             ),
                           );
@@ -91,7 +91,7 @@ class CategoriaCard extends StatelessWidget {
                         ),
                         child: Icon(
                           Icons.category_outlined,
-                          size: 48,
+                          size: Responsive.iconSize(context, 48),
                           color: Colors.grey[400],
                         ),
                       ),
@@ -101,12 +101,15 @@ class CategoriaCard extends StatelessWidget {
             Expanded(
               flex: 3,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: EdgeInsets.symmetric(
+                  horizontal: Responsive.scaleWidth(context, 12),
+                  vertical: Responsive.scaleHeight(context, 8),
+                ),
                 alignment: Alignment.center,
                 child: Text(
                   categoria.nombre,
-                  style: const TextStyle(
-                    fontSize: 15,
+                  style: TextStyle(
+                    fontSize: Responsive.fontSize(context, 15),
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.3,
                   ),

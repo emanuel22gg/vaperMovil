@@ -1,4 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
+
 import '../models/venta_pedido_model.dart';
 import '../models/detalle_pedido_model.dart';
 import '../models/estado_model.dart';
@@ -7,7 +10,6 @@ import '../services/auth_service.dart';
 import '../services/producto_service.dart';
 import '../models/usuario_model.dart';
 
-/// Provider de pedidos
 class PedidoProvider extends ChangeNotifier {
   List<VentaPedido> _pedidos = [];
   List<Estado> _estados = [];
@@ -17,255 +19,220 @@ class PedidoProvider extends ChangeNotifier {
 
   List<VentaPedido> get pedidos => List.unmodifiable(_pedidos);
   List<Estado> get estados => List.unmodifiable(_estados);
-  Map<int, List<DetallePedido>> get detallesCache =>
-      Map.unmodifiable(_detallesCache);
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  /// Cargar pedidos
-  Future<void> cargarPedidos({int? usuarioId}) async {
+  // ===================== CARGA DE PEDIDOS =====================
+  Future<void> cargarPedidos({int? usuarioId, Usuario? currentUser}) async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
+      debugPrint('📦 PedidoProvider: Cargando pedidos para usuarioId: $usuarioId');
       var pedidos = await PedidoService.getPedidos(usuarioId: usuarioId);
 
-      // Si el backend no devuelve el objeto usuario, lo resolvemos manualmente
-      final idsFaltantes = pedidos
-          .where((p) => p.usuario == null && p.usuarioId != null)
-          .map((p) => p.usuarioId!)
-          .toSet();
-
-      final Map<int, Usuario> usuariosCargados = {};
-      if (idsFaltantes.isNotEmpty) {
-        await Future.wait(idsFaltantes.map((id) async {
-          try {
-            usuariosCargados[id] = await AuthService.getUsuarioById(id);
-          } catch (e) {
-            debugPrint(
-              '❌ PedidoProvider: No se pudo obtener el usuario $id: $e',
-            );
-          }
-        }));
-      }
-
-      // Filtrar localmente por usuarioId si se especificó
-      // Esto es necesario si el backend ignora el parámetro de consulta
+      // Si el servidor no filtró correctamente (devolvió todos por error)
+      // o por seguridad, filtramos localmente si se solicitó un usuario específico.
       if (usuarioId != null) {
         pedidos = pedidos.where((p) => p.usuarioId == usuarioId).toList();
       }
 
-      _pedidos = pedidos.map((pedido) {
-        final usuario = pedido.usuario ??
-            (pedido.usuarioId != null
-                ? usuariosCargados[pedido.usuarioId!]
-                : null);
-        return usuario != null ? pedido.copyWith(usuario: usuario) : pedido;
+      final Map<int, Usuario> usuariosLocal = {};
+      
+      // Si tenemos el usuario actual, lo guardamos para no volverlo a pedir
+      if (currentUser != null && currentUser.id != null) {
+        usuariosLocal[currentUser.id!] = currentUser;
+      } else if (_currentUserLocal != null && _currentUserLocal?.id != null) {
+        usuariosLocal[_currentUserLocal!.id!] = _currentUserLocal!;
+      }
+
+      final idsUsuariosFaltantes = pedidos
+          .where((p) => p.usuario == null && p.usuarioId != null && !usuariosLocal.containsKey(p.usuarioId))
+          .map((p) => p.usuarioId!)
+          .toSet();
+
+      if (idsUsuariosFaltantes.isNotEmpty) {
+        debugPrint('📦 PedidoProvider: Cargando info de ${idsUsuariosFaltantes.length} usuarios faltantes');
+        for (final id in idsUsuariosFaltantes) {
+          try {
+            // Carga secuencial para no saturar al servidor (como en el admin)
+            final u = await AuthService.getUsuarioById(id);
+            usuariosLocal[id] = u;
+          } catch (_) {
+            debugPrint('⚠️ PedidoProvider: No se pudo cargar info del usuario $id');
+          }
+        }
+      }
+
+      _pedidos = pedidos.map((p) {
+        final usuario = p.usuario ?? usuariosLocal[p.usuarioId];
+        return usuario != null ? p.copyWith(usuario: usuario) : p;
       }).toList();
 
-      // Limpiar caché de detalles para evitar inconsistencias
       _detallesCache.clear();
-
+      debugPrint('✅ PedidoProvider: ${_pedidos.length} pedidos cargados');
+    } catch (e) {
+      // Limpiar el mensaje de "Exception: " si existe
+      _error = e.toString().replaceAll('Exception: ', '');
+      debugPrint('❌ PedidoProvider: Error cargando pedidos: $_error');
+    } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Helper para mantener referencia al usuario actual
+  Usuario? _currentUserLocal;
+  void setCurrentUser(Usuario? user) {
+    _currentUserLocal = user;
+  }
+
+  // ===================== ESTADOS =====================
+  Future<void> cargarEstados() async {
+    try {
+      _estados = await PedidoService.getEstados();
       notifyListeners();
     } catch (e) {
       _error = e.toString();
-      _isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Cargar estados
-  Future<void> cargarEstados() async {
+  int? obtenerEstadoPendienteId() {
+    if (_estados.isEmpty) return null;
+    
     try {
-      debugPrint('🔵 PedidoProvider: Cargando estados...');
-      _estados = await PedidoService.getEstados();
-      debugPrint('✅ PedidoProvider: ${_estados.length} estados cargados');
-      for (var estado in _estados) {
-        debugPrint('  - Estado: ${estado.nombre} (ID: ${estado.id})');
-      }
-      notifyListeners();
-    } catch (e, stackTrace) {
-      debugPrint('❌ PedidoProvider: Error al cargar estados: $e');
-      debugPrint('❌ PedidoProvider: Stack trace: $stackTrace');
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-
-  /// Crear pedido
-  Future<VentaPedido?> crearPedido(
-    VentaPedido pedido,
-    List<DetallePedido> detalles,
-  ) async {
-    try {
-      debugPrint('🔵 PedidoProvider: Iniciando creación de pedido...');
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      // Crear pedido
-      debugPrint('🔵 PedidoProvider: Creando pedido principal...');
-      final nuevoPedido = await PedidoService.crearPedido(pedido);
-      debugPrint('🔵 PedidoProvider: Pedido creado con ID: ${nuevoPedido.id}');
-
-      if (nuevoPedido.id == null) {
-        throw Exception('El pedido se creó pero no tiene ID');
-      }
-
-      // Crear detalles
-      debugPrint('🔵 PedidoProvider: Creando ${detalles.length} detalles...');
-      for (int i = 0; i < detalles.length; i++) {
-        final detalle = detalles[i];
-        debugPrint('🔵 PedidoProvider: Creando detalle ${i + 1}/${detalles.length}...');
-        await PedidoService.crearDetallePedido(
-          detalle.copyWith(ventaPedidoId: nuevoPedido.id),
-        );
-      }
-      debugPrint('✅ PedidoProvider: Todos los detalles creados');
-
-      // Recargar pedidos
-      debugPrint('🔵 PedidoProvider: Recargando lista de pedidos...');
-      await cargarPedidos(usuarioId: pedido.usuarioId);
-
-      _isLoading = false;
-      notifyListeners();
-      debugPrint('✅ PedidoProvider: Pedido creado exitosamente');
-      return nuevoPedido;
-    } catch (e, stackTrace) {
-      debugPrint('❌ PedidoProvider: Error al crear pedido: $e');
-      debugPrint('❌ PedidoProvider: Stack trace: $stackTrace');
-      _error = e.toString();
-      _isLoading = false;
-      notifyListeners();
+      final estado = _estados.firstWhere(
+        (e) => e.nombre.toLowerCase().contains('pendiente'),
+        orElse: () => _estados.first,
+      );
+      return estado.id;
+    } catch (_) {
       return null;
     }
   }
 
-  /// Actualizar estado de pedido
-  Future<bool> actualizarEstado(int pedidoId, int estadoId) async {
+  // ===================== CREAR PEDIDO =====================
+  Future<VentaPedido?> crearPedido(
+      VentaPedido pedido, List<DetallePedido> detalles) async {
     try {
-      debugPrint('🔵 PedidoProvider: Iniciando actualización de estado');
-      debugPrint('🔵 PedidoProvider: PedidoId: $pedidoId, Nuevo EstadoId: $estadoId');
-      
       _isLoading = true;
-      _error = null;
       notifyListeners();
 
-      final pedido = _pedidos.firstWhere((p) => p.id == pedidoId);
-      debugPrint('🔵 PedidoProvider: Pedido encontrado - EstadoId actual: ${pedido.estadoId}');
-      
-      final pedidoActualizado = pedido.copyWith(estadoId: estadoId);
-      debugPrint('🔵 PedidoProvider: Pedido actualizado - EstadoId nuevo: ${pedidoActualizado.estadoId}');
+      final nuevoPedido = await PedidoService.crearPedido(pedido);
+      if (nuevoPedido.id == null) throw Exception('Pedido sin ID');
 
-      final pedidoRespuesta = await PedidoService.actualizarPedido(pedidoActualizado);
-      debugPrint('🔵 PedidoProvider: Pedido actualizado en API - EstadoId respuesta: ${pedidoRespuesta.estadoId}');
+      for (final d in detalles) {
+        await PedidoService.crearDetallePedido(
+          d.copyWith(ventaPedidoId: nuevoPedido.id),
+        );
+      }
 
-      // Recargar pedidos
-      debugPrint('🔵 PedidoProvider: Recargando lista de pedidos...');
-      await cargarPedidos();
-
-      _isLoading = false;
-      notifyListeners();
-      debugPrint('✅ PedidoProvider: Estado actualizado exitosamente');
-      return true;
-    } catch (e, stackTrace) {
-      debugPrint('❌ PedidoProvider: Error al actualizar estado: $e');
-      debugPrint('❌ PedidoProvider: Stack trace: $stackTrace');
+      await cargarPedidos(usuarioId: pedido.usuarioId);
+      return nuevoPedido;
+    } catch (e) {
       _error = e.toString();
+      debugPrint('Error creando pedido: $e');
+      return null;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
     }
   }
 
-  /// Eliminar pedido
-  Future<bool> eliminarPedido(int pedidoId) async {
+  // ===================== ACUALIZAR ESTADO =====================
+  Future<bool> actualizarEstado(int pedidoId, int nuevoEstadoId) async {
     try {
       _isLoading = true;
-      _error = null;
       notifyListeners();
 
-      // Eliminar detalles primero
-      final detalles = await PedidoService.getDetallesPedido(pedidoId);
-      for (final detalle in detalles) {
-        if (detalle.id != null) {
-          await PedidoService.eliminarDetallePedido(detalle.id!);
-        }
+      final pedidoIndex = _pedidos.indexWhere((p) => p.id == pedidoId);
+      if (pedidoIndex == -1) {
+        // Si no está en la lista local, intentar obtenerlo de la API (aunque es raro en este flujo)
+        // Por ahora lanzamos error
+        throw Exception('Pedido no encontrado en la lista local');
       }
 
-      // Eliminar pedido
-      await PedidoService.eliminarPedido(pedidoId);
-
-      // Recargar pedidos
-      await cargarPedidos();
-
-      _isLoading = false;
-      notifyListeners();
+      final pedido = _pedidos[pedidoIndex];
+      // Crear copia del pedido con el nuevo estado
+      final pedidoActualizado = pedido.copyWith(estadoId: nuevoEstadoId);
+      
+      // Llamar al servicio para actualizar
+      final resultado = await PedidoService.actualizarPedido(pedidoActualizado);
+      
+      // Actualizar la lista local con el resultado
+      _pedidos[pedidoIndex] = resultado;
+      
       return true;
     } catch (e) {
       _error = e.toString();
+      return false;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
     }
   }
 
-  /// Obtener detalles de un pedido
-  Future<List<DetallePedido>> getDetallesPedido(int pedidoId) async {
+  // ===================== ELIMINAR PEDIDO =====================
+  Future<bool> eliminarPedido(int pedidoId) async {
     try {
-      // Retornar desde caché si ya existe
-      if (_detallesCache.containsKey(pedidoId)) {
-        return _detallesCache[pedidoId]!;
+      _isLoading = true;
+      notifyListeners();
+
+      await PedidoService.eliminarPedido(pedidoId);
+      _pedidos.removeWhere((p) => p.id == pedidoId);
+
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ===================== DETALLES =====================
+  Future<List<DetallePedido>> getDetallesPedido(int pedidoId) async {
+    if (_detallesCache.containsKey(pedidoId)) {
+      return _detallesCache[pedidoId]!;
+    }
+
+    try {
+      final detallesTodos = await PedidoService.getDetallesPedido(pedidoId);
+      
+      // Filtrar por ID del pedido. Si d.ventaPedidoId es null, confiamos en que 
+      // PedidoService.getDetallesPedido(pedidoId) ya filtró por nosotros en la API.
+      final detalles = detallesTodos
+          .where((d) => d.ventaPedidoId == null || d.ventaPedidoId == pedidoId)
+          .toList();
+
+      if (detalles.isEmpty && detallesTodos.isNotEmpty) {
+        // Si el filtrado estricto dejó la lista vacía pero la API devolvió datos,
+        // es probable que d.ventaPedidoId sea null por un error de mapeo.
+        // En este caso, usamos los datos que devolvió la API (que ya deberían estar filtrados).
+        detalles.addAll(detallesTodos);
       }
 
-      final detalles = await PedidoService.getDetallesPedido(pedidoId);
-      
-      // FILTRADO DE SEGURIDAD:
-      // Filtrar solo los detalles que corresponden a este pedidoId.
-      // Esto es necesario porque a veces la API devuelve detalles de otros pedidos
-      // si el filtrado en backend no funciona correctamente.
-      final detallesFiltrados = detalles.where((d) => d.ventaPedidoId == pedidoId).toList();
-      
-      // Enriquecer detalles con información del producto
-      final List<DetallePedido> detallesEnriquecidos = [];
-      
-      // Obtener IDs únicos de productos
-      final productoIds = detallesFiltrados
-          .map((d) => d.productoId)
-          .where((id) => id != null)
-          .toSet()
-          .cast<int>();
-          
-      final Map<int, dynamic> productosMap = {};
-      
-      if (productoIds.isNotEmpty) {
-        debugPrint('🔵 PedidoProvider: Cargando información para ${productoIds.length} productos...');
-        await Future.wait(productoIds.map((id) async {
-           try {
-            // Importar ProductoService si no está (asumimos que está importado o lo añadiremos)
-             final producto = await ProductoService.getProductoById(id);
-             productosMap[id] = producto;
-           } catch (e) {
-             debugPrint('⚠️ PedidoProvider: Error cargando producto $id: $e');
-           }
-        }));
+      final productosIds =
+          detalles.map((d) => d.productoId).whereType<int>().toSet();
+
+      final productos = <int, dynamic>{};
+      for (final id in productosIds) {
+        try {
+          productos[id] = await ProductoService.getProductoById(id);
+        } catch (_) {}
       }
 
-      // Asignar productos a detalles
-      for (var detalle in detallesFiltrados) {
-        if (detalle.productoId != null && productosMap.containsKey(detalle.productoId)) {
-           detallesEnriquecidos.add(detalle.copyWith(
-             producto: productosMap[detalle.productoId]
-           ));
-        } else {
-           detallesEnriquecidos.add(detalle);
-        }
-      }
+      final resultado = detalles.map((d) {
+        return d.productoId != null && productos.containsKey(d.productoId)
+            ? d.copyWith(producto: productos[d.productoId])
+            : d;
+      }).toList();
 
-      _detallesCache[pedidoId] = detallesEnriquecidos;
-      return detallesEnriquecidos;
+      _detallesCache[pedidoId] = resultado;
+      return resultado;
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -273,36 +240,39 @@ class PedidoProvider extends ChangeNotifier {
     }
   }
 
-  /// Obtener ID del estado "Pendiente"
-  /// Si no está cargado, lo carga primero
-  Future<int?> obtenerEstadoPendienteId() async {
-    try {
-      // Si los estados no están cargados, cargarlos
-      if (_estados.isEmpty) {
-        await cargarEstados();
-      }
+  // ===================== WHATSAPP =====================
+  Future<void> enviarComprobantePorWhatsApp(
+      VentaPedido pedido, List<DetallePedido> detalles) async {
+    final numero = '573052359631';
+    final format = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
 
-      // Buscar el estado "Pendiente" (case-insensitive)
-      final estadoPendiente = _estados.firstWhere(
-        (estado) => estado.nombre.toLowerCase().trim() == 'pendiente',
-        orElse: () => _estados.firstWhere(
-          (estado) => estado.nombre.toLowerCase().contains('pendiente'),
-          orElse: () => throw Exception('No se encontró el estado "Pendiente"'),
-        ),
-      );
+    final productos = detalles.map((d) {
+      final nombre = d.producto?.nombre ?? 'Producto';
+      return '- $nombre x${d.cantidad}: ${format.format(d.precioUnitario * d.cantidad)}';
+    }).join('\n');
 
-      return estadoPendiente.id;
-    } catch (e) {
-      debugPrint('❌ PedidoProvider: Error al obtener estado Pendiente: $e');
-      // Si no se encuentra, retornar null para que el código que lo use pueda manejar el error
-      return null;
+    final mensaje = '''
+*NUEVO PEDIDO*
+ID: #${pedido.id}
+Cliente: ${pedido.usuario?.nombre ?? 'N/A'}
+
+PRODUCTOS:
+$productos
+
+TOTAL: ${format.format(pedido.total)}
+''';
+
+    final url =
+        'https://wa.me/$numero?text=${Uri.encodeComponent(mensaje)}';
+
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url),
+          mode: LaunchMode.externalApplication);
     }
   }
 
-  /// Limpiar error
   void clearError() {
     _error = null;
     notifyListeners();
   }
 }
-

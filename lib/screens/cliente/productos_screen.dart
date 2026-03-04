@@ -137,7 +137,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
           Padding(
             padding: EdgeInsets.symmetric(
               horizontal: horizontalPadding,
-              vertical: 12,
+              vertical: Responsive.scaleHeight(context, 12),
             ),
             child: TextField(
               controller: _searchController,
@@ -171,19 +171,19 @@ class _ProductosScreenState extends State<ProductosScreen> {
                           children: [
                             Icon(
                               Icons.error_outline,
-                              size: 64,
+                              size: Responsive.iconSize(context, 64),
                               color: Colors.red[300],
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: Responsive.scaleHeight(context, 16)),
                             Text(
                               'Error: $_error',
-                              style: const TextStyle(color: Colors.red),
+                              style: TextStyle(color: Colors.red, fontSize: Responsive.fontSize(context, 14)),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: Responsive.scaleHeight(context, 16)),
                             ElevatedButton(
                               onPressed: _cargarProductos,
-                              child: const Text('Reintentar'),
+                              child: Text('Reintentar', style: TextStyle(fontSize: Responsive.fontSize(context, 14))),
                             ),
                           ],
                         ),
@@ -197,23 +197,23 @@ class _ProductosScreenState extends State<ProductosScreen> {
                                   children: [
                                     Icon(
                                       Icons.inventory_2_outlined,
-                                      size: 80,
+                                      size: Responsive.iconSize(context, 80),
                                       color: Colors.grey[400],
                                     ),
-                                    const SizedBox(height: 16),
+                                    SizedBox(height: Responsive.scaleHeight(context, 16)),
                                     Text(
                                       'No hay productos en esta categoría',
                                       style: TextStyle(
-                                        fontSize: 18,
+                                        fontSize: Responsive.fontSize(context, 18),
                                         color: Colors.grey[600],
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    const SizedBox(height: 8),
+                                    SizedBox(height: Responsive.scaleHeight(context, 8)),
                                     Text(
                                       'Intenta buscar con otro término',
                                       style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: Responsive.fontSize(context, 14),
                                         color: Colors.grey[500],
                                       ),
                                     ),
@@ -255,20 +255,20 @@ class _ProductosScreenState extends State<ProductosScreen> {
                 right: 0,
                 top: 0,
                 child: Container(
-                  padding: const EdgeInsets.all(2),
+                  padding: EdgeInsets.all(Responsive.scaleWidth(context, 2)),
                   decoration: const BoxDecoration(
                     color: Colors.red,
                     shape: BoxShape.circle,
                   ),
-                  constraints: const BoxConstraints(
-                    minWidth: 14,
-                    minHeight: 14,
+                  constraints: BoxConstraints(
+                    minWidth: Responsive.scaleWidth(context, 14),
+                    minHeight: Responsive.scaleHeight(context, 14),
                   ),
                   child: Text(
                     '${carritoProvider.cantidadTotal}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 10,
+                      fontSize: Responsive.fontSize(context, 10),
                       fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
@@ -279,9 +279,10 @@ class _ProductosScreenState extends State<ProductosScreen> {
         ),
         label: Text(
           'Total: \$${carritoProvider.precioTotal.toStringAsFixed(0)}',
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
+            fontSize: Responsive.fontSize(context, 14),
           ),
         ),
       ),

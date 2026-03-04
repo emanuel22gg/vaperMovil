@@ -5,10 +5,13 @@ import '../config/api_config.dart';
 
 /// Servicio base para llamadas HTTP a la API
 class ApiService {
+  static final http.Client _client = http.Client();
+
   static Future<Map<String, String>> _getHeaders(String? token) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'Connection': 'keep-alive', // Sugerir mantener la conexión abierta
     };
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
@@ -21,6 +24,7 @@ class ApiService {
     String endpoint, {
     String? token,
     Map<String, String>? queryParams,
+    bool retryIfSemaphoreTimeout = true, // Permitir un reintento por defecto
   }) async {
     try {
       var uri = Uri.parse('${ApiConfig.baseUrl}$endpoint');
@@ -29,38 +33,42 @@ class ApiService {
       }
 
       debugPrint('🌐 ApiService GET: $uri');
-      debugPrint('🌐 ApiService Headers: ${await _getHeaders(token)}');
-
-      final response = await http.get(
+      
+      final headers = await _getHeaders(token);
+      
+      final response = await _client.get(
         uri,
-        headers: await _getHeaders(token),
+        headers: headers,
       ).timeout(
-        const Duration(seconds: 60),
+        const Duration(seconds: 45),
         onTimeout: () {
-          debugPrint('❌ ApiService: Timeout al llamar a $uri');
-          throw Exception('Tiempo de espera agotado. Verifica tu conexión a internet.');
+          throw Exception('TimeoutException');
         },
       );
 
       debugPrint('🌐 ApiService Response Status: ${response.statusCode}');
-      debugPrint('🌐 ApiService Response Body (primeros 500 chars): ${response.body.length > 500 ? response.body.substring(0, 500) + "..." : response.body}');
-
       return response;
-    } catch (e, stackTrace) {
-      debugPrint('❌ ApiService: Error de conexión: $e');
-      debugPrint('❌ ApiService: Stack trace: $stackTrace');
+    } catch (e) {
+      final errorStr = e.toString().toLowerCase();
       
-      // Manejar diferentes tipos de errores de conexión
+      // Si es un error de semáforo de Windows (121) y tenemos permitido reintentar
+      if (retryIfSemaphoreTimeout && (errorStr.contains('semaphore') || errorStr.contains('121'))) {
+        debugPrint('⚠️ ApiService: Error de semáforo detectado. Reintentando en 1.5s...');
+        await Future.delayed(const Duration(milliseconds: 1500));
+        return get(endpoint, token: token, queryParams: queryParams, retryIfSemaphoreTimeout: false);
+      }
+
+      debugPrint('❌ ApiService: Error de conexión: $e');
+      
       String mensajeError;
-      if (e.toString().contains('TimeoutException') || 
-          e.toString().contains('timeout') ||
-          e.toString().contains('Se agotó el tiempo de espera')) {
-        mensajeError = 'Tiempo de espera agotado. El servidor no responde. Verifica tu conexión a internet.';
-      } else if (e.toString().contains('SocketException') || 
-                 e.toString().contains('Failed host lookup')) {
-        mensajeError = 'Error de conexión. Verifica tu conexión a internet y que el servidor esté disponible.';
+      if (errorStr.contains('timeout') || errorStr.contains('tiempo de espera')) {
+        mensajeError = 'El servidor no responde (Tiempo de espera agotado). Por favor, intenta de nuevo.';
+      } else if (errorStr.contains('semaphore') || errorStr.contains('121')) {
+        mensajeError = 'Error de red en Windows (Semaphore timeout). Prueba reintentar en unos segundos.';
+      } else if (errorStr.contains('socketexception') || errorStr.contains('connection failed')) {
+        mensajeError = 'No se pudo conectar con el servidor. Verifica tu internet.';
       } else {
-        mensajeError = 'Error de conexión: ${e.toString()}';
+        mensajeError = 'Error de comunicación: $e';
       }
       
       throw Exception(mensajeError);
@@ -77,43 +85,25 @@ class ApiService {
       var uri = Uri.parse('${ApiConfig.baseUrl}$endpoint');
       
       debugPrint('🌐 ApiService POST: $uri');
-      debugPrint('🌐 ApiService Body: ${jsonEncode(body)}');
-      debugPrint('🌐 ApiService Headers: ${await _getHeaders(token)}');
+      
+      final headers = await _getHeaders(token);
+      final bodyStr = jsonEncode(body);
 
-      final response = await http.post(
+      final response = await _client.post(
         uri,
-        headers: await _getHeaders(token),
-        body: jsonEncode(body),
+        headers: headers,
+        body: bodyStr,
       ).timeout(
-        const Duration(seconds: 60),
+        const Duration(seconds: 45),
         onTimeout: () {
-          debugPrint('❌ ApiService: Timeout al llamar a $uri');
-          throw Exception('Tiempo de espera agotado. Verifica tu conexión a internet.');
+          throw Exception('Tiempo de espera agotado.');
         },
       );
 
-      debugPrint('🌐 ApiService Response Status: ${response.statusCode}');
-      debugPrint('🌐 ApiService Response Body (primeros 500 chars): ${response.body.length > 500 ? response.body.substring(0, 500) + "..." : response.body}');
-
       return response;
-    } catch (e, stackTrace) {
-      debugPrint('❌ ApiService POST: Error de conexión: $e');
-      debugPrint('❌ ApiService POST: Stack trace: $stackTrace');
-      
-      // Manejar diferentes tipos de errores de conexión
-      String mensajeError;
-      if (e.toString().contains('TimeoutException') || 
-          e.toString().contains('timeout') ||
-          e.toString().contains('Se agotó el tiempo de espera')) {
-        mensajeError = 'Tiempo de espera agotado. El servidor no responde. Verifica tu conexión a internet.';
-      } else if (e.toString().contains('SocketException') || 
-                 e.toString().contains('Failed host lookup')) {
-        mensajeError = 'Error de conexión. Verifica tu conexión a internet y que el servidor esté disponible.';
-      } else {
-        mensajeError = 'Error de conexión: ${e.toString()}';
-      }
-      
-      throw Exception(mensajeError);
+    } catch (e) {
+      debugPrint('❌ ApiService POST Error: $e');
+      throw Exception('Error al enviar datos: $e');
     }
   }
 
@@ -126,43 +116,25 @@ class ApiService {
     try {
       final uri = Uri.parse('${ApiConfig.baseUrl}$endpoint');
       debugPrint('🌐 ApiService PUT: $uri');
-      debugPrint('🌐 ApiService Body: ${jsonEncode(body)}');
-      debugPrint('🌐 ApiService Headers: ${await _getHeaders(token)}');
+      
+      final headers = await _getHeaders(token);
+      final bodyStr = jsonEncode(body);
 
-      final response = await http.put(
+      final response = await _client.put(
         uri,
-        headers: await _getHeaders(token),
-        body: jsonEncode(body),
+        headers: headers,
+        body: bodyStr,
       ).timeout(
-        const Duration(seconds: 60),
+        const Duration(seconds: 45),
         onTimeout: () {
-          debugPrint('❌ ApiService: Timeout al llamar a $uri');
-          throw Exception('Tiempo de espera agotado. Verifica tu conexión a internet.');
+          throw Exception('Tiempo de espera agotado.');
         },
       );
 
-      debugPrint('🌐 ApiService Response Status: ${response.statusCode}');
-      debugPrint('🌐 ApiService Response Body (primeros 500 chars): ${response.body.length > 500 ? response.body.substring(0, 500) + "..." : response.body}');
-
       return response;
-    } catch (e, stackTrace) {
-      debugPrint('❌ ApiService PUT: Error de conexión: $e');
-      debugPrint('❌ ApiService PUT: Stack trace: $stackTrace');
-      
-      // Manejar diferentes tipos de errores de conexión
-      String mensajeError;
-      if (e.toString().contains('TimeoutException') || 
-          e.toString().contains('timeout') ||
-          e.toString().contains('Se agotó el tiempo de espera')) {
-        mensajeError = 'Tiempo de espera agotado. El servidor no responde. Verifica tu conexión a internet.';
-      } else if (e.toString().contains('SocketException') || 
-                 e.toString().contains('Failed host lookup')) {
-        mensajeError = 'Error de conexión. Verifica tu conexión a internet y que el servidor esté disponible.';
-      } else {
-        mensajeError = 'Error de conexión: ${e.toString()}';
-      }
-      
-      throw Exception(mensajeError);
+    } catch (e) {
+      debugPrint('❌ ApiService PUT Error: $e');
+      throw Exception('Error al actualizar datos: $e');
     }
   }
 
@@ -172,19 +144,25 @@ class ApiService {
     String? token,
   }) async {
     try {
-      final response = await http.delete(
-        Uri.parse('${ApiConfig.baseUrl}$endpoint'),
-        headers: await _getHeaders(token),
+      final uri = Uri.parse('${ApiConfig.baseUrl}$endpoint');
+      debugPrint('🌐 ApiService DELETE: $uri');
+      
+      final headers = await _getHeaders(token);
+
+      final response = await _client.delete(
+        uri,
+        headers: headers,
       ).timeout(
-        const Duration(seconds: 60),
+        const Duration(seconds: 45),
         onTimeout: () {
-          throw Exception('Tiempo de espera agotado. Verifica tu conexión a internet.');
+          throw Exception('Tiempo de espera agotado.');
         },
       );
 
       return response;
     } catch (e) {
-      throw Exception('Error de conexión: ${e.toString()}');
+      debugPrint('❌ ApiService DELETE Error: $e');
+      throw Exception('Error al eliminar datos: $e');
     }
   }
 

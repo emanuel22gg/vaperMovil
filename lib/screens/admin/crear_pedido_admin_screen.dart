@@ -27,6 +27,7 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
   List<Producto> _productosFiltrados = [];
   final Map<int, int> _productosAgregados = {}; // productoId -> cantidad
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _clientSearchController = TextEditingController();
   final TextEditingController _direccionController = TextEditingController();
   final TextEditingController _telefonoController = TextEditingController();
   final TextEditingController _observacionesController = TextEditingController();
@@ -39,11 +40,13 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
     super.initState();
     _cargarDatos();
     _searchController.addListener(_filtrarProductos);
+    _clientSearchController.addListener(_filtrarClientes);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _clientSearchController.dispose();
     _direccionController.dispose();
     _telefonoController.dispose();
     _observacionesController.dispose();
@@ -51,10 +54,14 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
   }
 
   Future<void> _cargarDatos() async {
-    await Future.wait([
-      _cargarClientes(),
-      _cargarProductos(),
-    ]);
+    // Cargamos secuencialmente para evitar el error de "Semaphore timeout" (Error 121) en Windows
+    // al realizar múltiples peticiones simultáneas al servidor de Somee (que es limitado).
+    await _cargarClientes();
+    
+    // Pequeña pausa para dejar respirar al servidor/red
+    await Future.delayed(const Duration(milliseconds: 800));
+    
+    await _cargarProductos();
   }
 
   Future<void> _cargarClientes() async {
@@ -70,6 +77,7 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
             .where((u) => (u.rolId != null && u.rolId != 2) || 
                          (u.rolId == null && u.rol != 'Admin'))
             .toList();
+        _clientesFiltrados = _clientes;
         _isLoadingClientes = false;
       });
     } catch (e) {
@@ -135,6 +143,29 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
                 p.nombre.toLowerCase().contains(query) ||
                 (p.descripcion?.toLowerCase().contains(query) ?? false))
             .toList();
+      }
+    });
+  }
+
+  List<Usuario> _clientesFiltrados = [];
+  void _filtrarClientes() {
+    final query = _clientSearchController.text.toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _clientesFiltrados = _clientes;
+      } else {
+        _clientesFiltrados = _clientes
+            .where((c) =>
+                c.nombre.toLowerCase().contains(query) ||
+                c.email.toLowerCase().contains(query))
+            .toList();
+            
+        // Si el cliente seleccionado ya no está en el filtro, NO lo deseleccionamos 
+        // para evitar que el dropdown explote (Flutter requiere que el valor esté en la lista),
+        // así que lo agregamos manualmente si es necesario.
+        if (_clienteSeleccionado != null && !_clientesFiltrados.contains(_clienteSeleccionado)) {
+          _clientesFiltrados.insert(0, _clienteSeleccionado!);
+        }
       }
     });
   }
@@ -320,354 +351,537 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
-    final productosAgregadosList = _productosAgregados.entries
-        .map((entry) => _productos.firstWhere((p) => p.id == entry.key))
-        .toList();
+    final width = MediaQuery.of(context).size.width;
+    final paddingValue = Responsive.pagePadding(width);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final crossAxisCount = Responsive.gridCount(
-          width,
-          mobile: 2,
-          tablet: 3,
-          desktop: 4,
-        );
-        final padding = EdgeInsets.all(Responsive.pagePadding(width));
-
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Crear Pedido'),
-            backgroundColor: Colors.black,
-            foregroundColor: Colors.white,
-          ),
-          body: SingleChildScrollView(
-            padding: padding,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: Responsive.maxWidthConstraint(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Selección de Cliente
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Cliente',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            _isLoadingClientes
-                                ? const Center(child: CircularProgressIndicator())
-                                : DropdownButtonFormField<Usuario>(
-                                    initialValue: _clienteSeleccionado,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Seleccionar cliente',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    isExpanded: true,
-                                    items: _clientes.map((cliente) {
-                                      return DropdownMenuItem(
-                                        value: cliente,
-                                        child: Text(
-                                          '${cliente.nombre} - ${cliente.email}',
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (cliente) {
-                                      setState(() {
-                                        _clienteSeleccionado = cliente;
-                                        if (cliente != null) {
-                                          _direccionController.text =
-                                              cliente.direccion ?? '';
-                                          _telefonoController.text = cliente.telefono ?? '';
-                                        }
-                                      });
-                                    },
-                                  ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Información adicional
-                    if (_clienteSeleccionado != null) ...[
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Información de Entrega',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _direccionController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Dirección de entrega',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _telefonoController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Teléfono de contacto',
-                                  border: OutlineInputBorder(),
-                                ),
-                                keyboardType: TextInputType.phone,
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _observacionesController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Observaciones (opcional)',
-                                  border: OutlineInputBorder(),
-                                ),
-                                maxLines: 3,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Búsqueda de productos
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Productos Disponibles',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _searchController,
-                              decoration: InputDecoration(
-                                hintText: 'Buscar productos...',
-                                prefixIcon: const Icon(Icons.search),
-                                suffixIcon: _searchController.text.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear),
-                                        onPressed: () {
-                                          _searchController.clear();
-                                        },
-                                      )
-                                    : null,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Lista de productos disponibles
-                    _isLoadingProductos
-                        ? const Center(child: CircularProgressIndicator())
-                        : _productosFiltrados.isEmpty
-                            ? const Center(
-                                child: Text('No hay productos disponibles'),
-                              )
-                            : GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: crossAxisCount,
-                                  crossAxisSpacing: 16,
-                                  mainAxisSpacing: 16,
-                                  childAspectRatio: 0.50,
-                                ),
-                                itemCount: _productosFiltrados.length,
-                                itemBuilder: (context, index) {
-                                  final producto = _productosFiltrados[index];
-                                  final cantidadAgregada =
-                                      _productosAgregados[producto.id] ?? 0;
-                                  return ProductoCard(
-                                    producto: producto,
-                                    onAddToCart: producto.disponible
-                                        ? (cantidad) => _agregarProducto(producto, cantidad: cantidad)
-                                        : null,
-                                    onTap: producto.disponible
-                                        ? () {
-                                            if (cantidadAgregada == 0) {
-                                              _agregarProducto(producto);
-                                            }
-                                          }
-                                        : null,
-                                  );
-                                },
-                              ),
-
-                    const SizedBox(height: 24),
-
-            // Productos agregados
-            if (_productosAgregados.isNotEmpty) ...[
-              Card(
-                color: Colors.purple[50],
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text(
+          'Crear Nuevo Pedido',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 20),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: Colors.black,
+        centerTitle: false,
+      ),
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.symmetric(horizontal: paddingValue, vertical: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Productos Agregados',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ...productosAgregadosList.map((producto) {
-                        final cantidad = _productosAgregados[producto.id]!;
-                        final subtotal = producto.precio * cantidad;
-                        // Obtener URL de imagen usando idImagen o imagenUrl como fallback
-                        String? urlImagen;
-                        if (producto.idImagen != null) {
-                          urlImagen = ProductoService.getUrlImagen(producto.idImagen);
-                        }
-                        if (urlImagen == null || urlImagen.isEmpty) {
-                          urlImagen = producto.imagenUrl;
-                        }
-                        
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: urlImagen != null && urlImagen.isNotEmpty
-                                ? Image.network(
-                                    urlImagen,
-                                    width: 50,
-                                    height: 50,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        const Icon(Icons.image_not_supported),
-                                  )
-                                : const Icon(Icons.image_not_supported),
-                            title: Text(producto.nombre),
-                            subtitle: Text(
-                              '${currencyFormat.format(producto.precio)} x $cantidad = ${currencyFormat.format(subtotal)}',
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline),
-                                  onPressed: () {
-                                    _actualizarCantidad(producto.id!, cantidad - 1);
-                                  },
-                                ),
-                                Text('$cantidad'),
-                                IconButton(
-                                  icon: const Icon(Icons.add_circle_outline),
-                                  onPressed: () {
-                                    _actualizarCantidad(producto.id!, cantidad + 1);
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () {
-                                    _eliminarProducto(producto.id!);
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
-                      const Divider(),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Total:',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            currencyFormat.format(_calcularTotal()),
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ],
-                      ),
+                      _buildSectionHeader('1', 'Selección de Cliente'),
+                      _buildClientSelectionCard(),
+                      if (_clienteSeleccionado != null) ...[
+                        const SizedBox(height: 24),
+                        _buildSectionHeader('2', 'Catálogo de Productos'),
+                        _buildProductSearchAndCatalog(width),
+                      ],
+                      const SizedBox(height: 100), // Espacio para el panel inferior
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
             ],
+          ),
+          if (_productosAgregados.isNotEmpty)
+            _buildBottomSummary(currencyFormat),
+          if (_isCreando)
+            Container(
+              color: Colors.black26,
+              child: const Center(child: CircularProgressIndicator(color: Colors.black)),
+            ),
+        ],
+      ),
+    );
+  }
 
-            // Botón crear pedido
-            if (_productosAgregados.isNotEmpty)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isCreando ? null : _crearPedido,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFB74D), // Naranja claro
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+  Widget _buildSectionHeader(String number, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: const BoxDecoration(
+              color: Colors.black,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              number,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClientSelectionCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_isLoadingClientes)
+            const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+          else
+            Autocomplete<Usuario>(
+              displayStringForOption: (Usuario u) => '${u.nombre} (${u.email})',
+              optionsBuilder: (TextEditingValue textEditingValue) {
+                if (textEditingValue.text.isEmpty) return _clientes;
+                return _clientes.where((u) =>
+                    u.nombre.toLowerCase().contains(textEditingValue.text.toLowerCase()) ||
+                    u.email.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+              },
+              onSelected: (Usuario u) {
+                setState(() {
+                  _clienteSeleccionado = u;
+                  _direccionController.text = u.direccion ?? '';
+                  _telefonoController.text = u.telefono ?? '';
+                });
+              },
+              fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                if (_clienteSeleccionado != null && controller.text.isEmpty) {
+                  controller.text = '${_clienteSeleccionado!.nombre} (${_clienteSeleccionado!.email})';
+                }
+                return TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  decoration: InputDecoration(
+                    hintText: 'Buscar por nombre o correo...',
+                    prefixIcon: const Icon(Icons.person_search_rounded),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[200]!),
                     ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[200]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.black),
+                    ),
+                    suffixIcon: _clienteSeleccionado != null
+                        ? IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                            onPressed: () {
+                              controller.clear();
+                              setState(() {
+                                _clienteSeleccionado = null;
+                                _productosAgregados.clear();
+                              });
+                            },
+                          )
+                        : null,
                   ),
-                  child: _isCreando
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          'Crear Pedido',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                );
+              },
+            ),
+          if (_clienteSeleccionado != null) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  _buildClientInfoRow(Icons.location_on_outlined, 'Dirección', _direccionController),
+                  const Divider(height: 24),
+                  _buildClientInfoRow(Icons.phone_outlined, 'Teléfono', _telefonoController),
+                  const Divider(height: 24),
+                  _buildClientInfoRow(Icons.note_alt_outlined, 'Observaciones', _observacionesController, maxLines: 2),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClientInfoRow(IconData icon, String label, TextEditingController controller, {int maxLines = 1}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.grey[600]),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.bold)),
+              TextField(
+                controller: controller,
+                maxLines: maxLines,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 4),
+                  hintText: 'Completar información...',
                 ),
               ),
-                  ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProductSearchAndCatalog(double screenWidth) {
+    return Column(
+      children: [
+        TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Buscar productos...',
+            prefixIcon: const Icon(Icons.search_rounded),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _isLoadingProductos
+            ? const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
+            : GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: Responsive.gridCount(screenWidth, mobile: 2, tablet: 3, desktop: 4),
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  mainAxisExtent: 260,
                 ),
+                itemCount: _productosFiltrados.length,
+                itemBuilder: (context, index) {
+                  final p = _productosFiltrados[index];
+                  final isAdded = _productosAgregados.containsKey(p.id);
+                  return _buildModernProductCard(p, isAdded);
+                },
+              ),
+      ],
+    );
+  }
+
+  Widget _buildModernProductCard(Producto p, bool isAdded) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                child: p.imagenUrl != null && p.imagenUrl!.isNotEmpty
+                    ? Image.network(p.imagenUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: Colors.grey))
+                    : const Icon(Icons.image_outlined, color: Colors.grey),
               ),
             ),
           ),
-        );
-      },
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  p.nombre,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(p.precio),
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.blue[800]),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: p.disponible && p.stock > 0 ? () => _agregarProducto(p) : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isAdded ? Colors.green : Colors.black,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 0),
+                      minimumSize: const Size(0, 32),
+                    ),
+                    child: Text(
+                      isAdded ? 'AÑADIDO ✓' : 'AÑADIR',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomSummary(NumberFormat currencyFormat) {
+    final total = _calcularTotal();
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 20,
+          bottom: MediaQuery.of(context).padding.bottom + 20,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 15,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Resumen',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '${_productosAgregados.length} productos agregados',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Venta Total',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      currencyFormat.format(total),
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, letterSpacing: -1),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _showProductsDetail(),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      side: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    child: const Text('VER DETALLE', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: _isCreando ? null : _crearPedido,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: const Text('CREAR PEDIDO', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showProductsDetail() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+          final items = _productosAgregados.entries.map((e) {
+            final p = _productos.firstWhere((prod) => prod.id == e.key);
+            return {'producto': p, 'cantidad': e.value};
+          }).toList();
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.7,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Row(
+                    children: [
+                      const Text('Detalle del Pedido', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                      const Spacer(),
+                      IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      final p = item['producto'] as Producto;
+                      final cant = item['cantidad'] as int;
+
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: p.imagenUrl != null ? Image.network(p.imagenUrl!, fit: BoxFit.cover) : const Icon(Icons.image),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(p.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  Text(currencyFormat.format(p.precio), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                                ],
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                IconButton(
+                                  onPressed: () {
+                                    _actualizarCantidad(p.id!, cant - 1);
+                                    setModalState(() {});
+                                    setState(() {});
+                                    if (_productosAgregados.isEmpty) Navigator.pop(context);
+                                  },
+                                  icon: const Icon(Icons.remove_circle_outline, size: 20),
+                                ),
+                                Text('$cant', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                IconButton(
+                                  onPressed: () {
+                                    _actualizarCantidad(p.id!, cant + 1);
+                                    setModalState(() {});
+                                    setState(() {});
+                                  },
+                                  icon: const Icon(Icons.add_circle_outline, size: 20),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
+                  child: Row(
+                    children: [
+                      const Text('Venta Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      Text(currencyFormat.format(_calcularTotal()), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
-

@@ -1,0 +1,254 @@
+﻿import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../models/producto_model.dart';
+import '../services/producto_service.dart';
+import '../utils/responsive.dart';
+
+/// Card de producto - SIN OVERFLOW - versión final optimizada
+class ProductoCard extends StatefulWidget {
+  final Producto producto;
+  final Function(int quantity)? onAddToCart;
+  final VoidCallback? onTap;
+
+  const ProductoCard({
+    super.key,
+    required this.producto,
+    this.onAddToCart,
+    this.onTap,
+  });
+
+  @override
+  State<ProductoCard> createState() => _ProductoCardState();
+}
+
+class _ProductoCardState extends State<ProductoCard> {
+  int _quantity = 1;
+
+  void _incrementQuantity() {
+    if (_quantity < widget.producto.stock) {
+      setState(() {
+        _quantity++;
+      });
+    }
+  }
+
+  void _decrementQuantity() {
+    if (_quantity > 1) {
+      setState(() {
+        _quantity--;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+
+    // Obtener URL de imagen
+    String? urlImagen;
+    if (widget.producto.idImagen != null) {
+      urlImagen = ProductoService.getUrlImagen(widget.producto.idImagen);
+    }
+    if (urlImagen == null || urlImagen.isEmpty) {
+      urlImagen = widget.producto.imagenUrl;
+    }
+
+    final bool estaAgotado = widget.producto.stock == 0;
+
+    // Return Card directly; Grid's mainAxisExtent will control tile height
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.black.withAlpha((0.08 * 255).round()),
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Determine a safe height for the card based on the tile constraints.
+            final tileWidth = constraints.maxWidth;
+            final tileHeight = (constraints.maxHeight > 0)
+                ? constraints.maxHeight
+                : (tileWidth / 0.65); // fallback matching typical childAspectRatio
+
+            final imageHeight = (tileHeight * 0.58).clamp(80.0, tileHeight * 0.7);
+            final contentHeight = tileHeight - imageHeight;
+
+            return SizedBox(
+              height: tileHeight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Imagen con altura fija calculada
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    child: SizedBox(
+                      height: imageHeight,
+                      width: double.infinity,
+                      child: urlImagen != null && urlImagen.isNotEmpty
+                          ? Image.network(
+                              urlImagen,
+                              fit: BoxFit.cover,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                    strokeWidth: 2,
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: Icon(
+                                    Icons.image_not_supported,
+                                    size: Responsive.iconSize(context, 40),
+                                    color: Colors.grey,
+                                  ),
+                                );
+                              },
+                            )
+                          : Container(
+                              color: Colors.grey[200],
+                              child: Icon(
+                                Icons.image_not_supported,
+                                size: Responsive.iconSize(context, 40),
+                                color: Colors.grey,
+                              ),
+                            ),
+                    ),
+                  ),
+
+                  // Contenido con altura fija restante
+                  SizedBox(
+                    height: contentHeight,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: Responsive.scaleWidth(context, 8),
+                        vertical: Responsive.scaleHeight(context, 6),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Nombre y precio
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.producto.nombre.isNotEmpty
+                                      ? widget.producto.nombre
+                                      : 'Sin nombre',
+                                  style: TextStyle(
+                                    fontSize: Responsive.fontSize(context, 12),
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.05,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                SizedBox(height: Responsive.scaleHeight(context, 4)),
+                                Text(
+                                  currencyFormat.format(widget.producto.precio),
+                                  style: TextStyle(
+                                    fontSize: Responsive.fontSize(context, 13),
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF2196F3),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Controles y botón en fila compacta
+                          Row(
+                            children: [
+                              if (!estaAgotado) ...[
+                                _buildQuantityButton(
+                                  context,
+                                  icon: Icons.remove,
+                                  onPressed: _quantity > 1 ? _decrementQuantity : null,
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: Responsive.scaleWidth(context, 6)),
+                                  child: Text('$_quantity', style: TextStyle(fontSize: Responsive.fontSize(context, 12), fontWeight: FontWeight.bold)),
+                                ),
+                                _buildQuantityButton(
+                                  context,
+                                  icon: Icons.add,
+                                  onPressed: _quantity < widget.producto.stock ? _incrementQuantity : null,
+                                ),
+                                SizedBox(width: Responsive.scaleWidth(context, 8)),
+                              ],
+
+                              // Botón expandible para usar el resto del ancho
+                              Expanded(
+                                child: SizedBox(
+                                  height: Responsive.scaleHeight(context, 30),
+                                  child: estaAgotado
+                                      ? OutlinedButton(
+                                          onPressed: null,
+                                          style: OutlinedButton.styleFrom(
+                                            padding: EdgeInsets.zero,
+                                            side: const BorderSide(color: Color(0xFFBDBDBD)),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                          ),
+                                          child: Text('Agotado', style: TextStyle(fontSize: Responsive.fontSize(context, 10), color: const Color(0xFF757575))),
+                                        )
+                                      : widget.onAddToCart != null
+                                          ? ElevatedButton(
+                                              onPressed: () => widget.onAddToCart!(_quantity),
+                                              style: ElevatedButton.styleFrom(
+                                                padding: EdgeInsets.zero,
+                                                backgroundColor: const Color(0xFF2196F3),
+                                                foregroundColor: Colors.white,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                              ),
+                                              child: Text('Agregar', style: TextStyle(fontSize: Responsive.fontSize(context, 11), fontWeight: FontWeight.bold)),
+                                            )
+                                          : const SizedBox.shrink(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuantityButton(BuildContext context, {required IconData icon, VoidCallback? onPressed}) {
+    final size = Responsive.scaleWidth(context, 26);
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Container(
+        decoration: BoxDecoration(
+          color: onPressed != null ? Colors.grey[200] : Colors.grey[100],
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: IconButton(
+          icon: Icon(icon, size: Responsive.iconSize(context, 12)),
+          onPressed: onPressed,
+          padding: EdgeInsets.zero,
+          color: onPressed != null ? Colors.black : Colors.grey,
+        ),
+      ),
+    );
+  }
+}
+

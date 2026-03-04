@@ -15,14 +15,16 @@ class Categoria {
   });
 
   factory Categoria.fromJson(Map<String, dynamic> json) {
-    print('📦 Categoria parseada: id=${json['id']}, nombreCategoria=${json['nombreCategoria']}');
-    
     return Categoria(
-      id: json['id'] as int?,
-      nombre: json['nombreCategoria'] as String? ?? 'Sin nombre',
-      descripcion: json['descripcion'] as String?,
-      estado: json['estado'] as bool?,
-      idImagen: json['idImagen'] as int?,
+      id: json['id'] as int? ?? json['Id'] as int?,
+      nombre: (json['nombreCategoria'] as String?) ??
+              (json['NombreCategoria'] as String?) ??
+              (json['nombre'] as String?) ??
+              (json['Nombre'] as String?) ??
+              'Sin nombre',
+      descripcion: json['descripcion'] as String? ?? json['Descripcion'] as String?,
+      estado: json['estado'] as bool? ?? json['Estado'] as bool?,
+      idImagen: json['idImagen'] as int? ?? json['IdImagen'] as int?,
     );
   }
 

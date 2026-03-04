@@ -1,6 +1,4 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -15,6 +13,7 @@ import '../../services/producto_service.dart';
 import '../../services/ubicacion_service.dart';
 import '../../config/api_config.dart';
 import '../../widgets/custom_button.dart';
+import '../../widgets/carrito_item_card.dart';
 import '../../utils/responsive.dart';
 
 /// Pantalla del carrito de compras
@@ -88,70 +87,106 @@ class _CarritoScreenState extends State<CarritoScreen> {
     }
   }
 
-  /// Mostrar diálogo para seleccionar tipo de entrega
   Future<String?> _seleccionarTipoEntrega() async {
-    return await showDialog<String>(
+    return await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Tipo de Entrega'),
-        content: Column(
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ListTile(
-              leading: const Icon(Icons.store, color: Colors.blue),
-              title: const Text('Recoger en Punto Físico'),
-              subtitle: const Text('Retira tu pedido en nuestra tienda'),
+            Text(
+              'Método de Entrega',
+              style: TextStyle(
+                fontSize: Responsive.fontSize(context, 20),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '¿Cómo prefieres recibir tus productos?',
+              style: TextStyle(
+                fontSize: Responsive.fontSize(context, 14),
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _OptionTile(
+              icon: Icons.store_rounded,
+              title: 'Recoger en Punto Físico',
+              subtitle: 'Retira tu pedido en nuestra tienda',
+              color: Colors.blue,
               onTap: () => Navigator.of(context).pop('recoger'),
             ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.local_shipping, color: Colors.green),
-              title: const Text('Envío a Domicilio'),
-              subtitle: const Text('Recibe tu pedido en tu dirección'),
+            const SizedBox(height: 12),
+            _OptionTile(
+              icon: Icons.local_shipping_rounded,
+              title: 'Envío a Domicilio',
+              subtitle: 'Recibe tu pedido en tu dirección',
+              color: Colors.green,
               onTap: () => Navigator.of(context).pop('domicilio'),
             ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-        ],
       ),
     );
   }
 
-  /// Mostrar diálogo para seleccionar método de pago
   Future<String?> _seleccionarMetodoPago() async {
-    return await showDialog<String>(
+    return await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Método de Pago'),
-        content: Column(
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ListTile(
-              leading: const Icon(Icons.money, color: Colors.green),
-              title: const Text('Efectivo (Pago Contraentrega)'),
-              subtitle: const Text('Paga cuando recibas tu pedido'),
+            Text(
+              'Método de Pago',
+              style: TextStyle(
+                fontSize: Responsive.fontSize(context, 20),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Selecciona cómo deseas realizar el pago',
+              style: TextStyle(
+                fontSize: Responsive.fontSize(context, 14),
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _OptionTile(
+              icon: Icons.payments_rounded,
+              title: 'Efectivo (Contraentrega)',
+              subtitle: 'Paga cuando recibas tu pedido',
+              color: Colors.green,
               onTap: () => Navigator.of(context).pop('efectivo'),
             ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.account_balance, color: Colors.blue),
-              title: const Text('Transferencia'),
-              subtitle: const Text('Adjunta el comprobante de pago'),
+            const SizedBox(height: 12),
+            _OptionTile(
+              icon: Icons.account_balance_rounded,
+              title: 'Transferencia Bancaria',
+              subtitle: 'Adjunta el comprobante vía WhatsApp',
+              color: Colors.blue,
               onTap: () => Navigator.of(context).pop('transferencia'),
             ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-        ],
       ),
     );
   }
@@ -159,19 +194,42 @@ class _CarritoScreenState extends State<CarritoScreen> {
   /// Abrir WhatsApp para enviar comprobante
   Future<void> _abrirWhatsApp() async {
     try {
+      final carritoProvider = context.read<CarritoProvider>();
+      final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+      
+      final sb = StringBuffer();
+      sb.writeln('*NUEVO PEDIDO (TRANSFERENCIA)*');
+      sb.writeln('');
+      sb.writeln('Hola, deseo confirmar mi pedido con los siguientes productos:');
+      sb.writeln('');
+      
+      for (final item in carritoProvider.items) {
+        sb.writeln('- ${item.producto.nombre} x${item.cantidad}');
+        sb.writeln('  ${currencyFormat.format(item.subtotal)}');
+      }
+      
+      sb.writeln('');
+      sb.writeln('*TOTAL A PAGAR: ${currencyFormat.format(carritoProvider.precioTotal)}*');
+      sb.writeln('');
+      sb.writeln('Adjunto mi comprobante de pago:');
+
       final numero = ApiConfig.whatsappNumero;
-      final mensaje = Uri.encodeComponent(ApiConfig.whatsappMensaje);
+      final mensaje = Uri.encodeComponent(sb.toString());
       final url = 'https://wa.me/$numero?text=$mensaje';
       
       final uri = Uri.parse(url);
+      final waUri = Uri.parse('whatsapp://send?phone=$numero&text=$mensaje');
+
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else if (await canLaunchUrl(waUri)) {
+        await launchUrl(waUri);
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No se pudo abrir WhatsApp'),
-              backgroundColor: Colors.red,
+              content: Text('WhatsApp no está instalado o no se puede abrir'),
+              backgroundColor: Colors.orange,
             ),
           );
         }
@@ -188,7 +246,6 @@ class _CarritoScreenState extends State<CarritoScreen> {
     }
   }
 
-  /// Mostrar diálogo para datos de envío a domicilio
   Future<Map<String, String>?> _mostrarDialogoDomicilio(String metodoPago) async {
     _direccionController.clear();
     _telefonoController.clear();
@@ -197,240 +254,334 @@ class _CarritoScreenState extends State<CarritoScreen> {
     _ciudadSeleccionada = null;
     _ciudades = [];
 
-    // Cargar departamentos al abrir el diálogo
     await _cargarDepartamentos();
 
-    return await showDialog<Map<String, String>>(
+    if (!mounted) return null;
+
+    final result = await showModalBottomSheet<Map<String, String>>(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Datos de Entrega'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: _direccionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Dirección de entrega *',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.location_on),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _telefonoController,
-                  decoration: const InputDecoration(
-                    labelText: 'Teléfono de contacto *',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone),
-                  ),
-                  keyboardType: TextInputType.phone,
-                ),
-                const SizedBox(height: 16),
-                // Dropdown de Departamento
-                _isCargandoDepartamentos
-                    ? const Center(child: CircularProgressIndicator())
-                    : DropdownButtonFormField<Departamento>(
-                        value: _departamentoSeleccionado,
-                        decoration: const InputDecoration(
-                          labelText: 'Departamento *',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.map),
-                        ),
-                        items: _departamentos.map((departamento) {
-                          return DropdownMenuItem<Departamento>(
-                            value: departamento,
-                            child: Text(departamento.nombre),
-                          );
-                        }).toList(),
-                        onChanged: (departamento) async {
-                          setState(() {
-                            _departamentoSeleccionado = departamento;
-                            _ciudadSeleccionada = null; // Limpiar ciudad al cambiar departamento
-                          });
-                          setDialogState(() {});
-                          
-                          // Cargar ciudades del departamento seleccionado
-                          if (departamento != null && departamento.id != null) {
-                            await _cargarCiudades(departamento.id!);
-                            setDialogState(() {});
-                          }
-                        },
+        builder: (context, setDialogState) {
+          final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+          
+          return Container(
+            padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + keyboardHeight),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                const SizedBox(height: 16),
-                // Dropdown de Ciudad
-                _departamentoSeleccionado == null
-                    ? DropdownButtonFormField<Ciudad>(
-                        value: null,
-                        decoration: const InputDecoration(
-                          labelText: 'Ciudad *',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.location_city),
-                          hintText: 'Selecciona primero un departamento',
-                        ),
-                        items: const [],
-                        onChanged: null,
-                        hint: const Text('Selecciona primero un departamento'),
-                      )
-                    : _isCargandoCiudades
-                        ? const Center(child: CircularProgressIndicator())
-                        : DropdownButtonFormField<Ciudad>(
-                            value: _ciudadSeleccionada,
-                            decoration: const InputDecoration(
-                              labelText: 'Ciudad *',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.location_city),
-                            ),
-                            items: _ciudades.isEmpty
-                                ? [
-                                    const DropdownMenuItem<Ciudad>(
-                                      value: null,
-                                      enabled: false,
-                                      child: Text('No hay ciudades disponibles'),
-                                    )
-                                  ]
-                                : _ciudades.map((ciudad) {
-                                    return DropdownMenuItem<Ciudad>(
-                                      value: ciudad,
-                                      child: Text(ciudad.nombre),
-                                    );
-                                  }).toList(),
-                            onChanged: _ciudades.isEmpty
-                                ? null
-                                : (ciudad) {
-                                    setState(() {
-                                      _ciudadSeleccionada = ciudad;
-                                    });
-                                    setDialogState(() {});
-                                  },
-                          ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _observacionesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Observaciones (opcional)',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.note),
-                  ),
-                  maxLines: 3,
-                ),
-                if (metodoPago == 'transferencia') ...[
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.shade200),
                     ),
-                    child: Column(
-                      children: [
-                        const Icon(
-                          Icons.info_outline,
-                          color: Colors.blue,
-                          size: 32,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Comprobante de Pago',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                        child: const Icon(Icons.location_on_rounded, color: Colors.green),
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Datos de Entrega',
+                        style: TextStyle(
+                          fontSize: Responsive.fontSize(context, 20),
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Por favor, envía el comprobante de pago a nuestro WhatsApp',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            await _abrirWhatsApp();
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  _buildSectionTitle(context, 'Información del Receptor'),
+                  _buildPremiumTextField(
+                    context: context,
+                    controller: _direccionController,
+                    label: 'Dirección de entrega *',
+                    icon: Icons.home_rounded,
+                    hint: 'Ej: Calle 123 #45-67',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildPremiumTextField(
+                    context: context,
+                    controller: _telefonoController,
+                    label: 'Teléfono de contacto *',
+                    icon: Icons.phone_android_rounded,
+                    hint: 'Tu número de celular',
+                    keyboardType: TextInputType.phone,
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  _buildSectionTitle(context, 'Ubicación'),
+                  _isCargandoDepartamentos
+                      ? const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                      : _buildPremiumDropdown<Departamento>(
+                          context: context,
+                          label: 'Departamento *',
+                          icon: Icons.map_rounded,
+                          value: _departamentoSeleccionado,
+                          items: _departamentos.map((d) => 
+                            DropdownMenuItem(value: d, child: Text(d.nombre))
+                          ).toList(),
+                          onChanged: (d) async {
+                            setDialogState(() {
+                              _departamentoSeleccionado = d;
+                              _ciudadSeleccionada = null;
+                            });
+                            if (d != null && d.id != null) {
+                              await _cargarCiudades(d.id!);
+                              setDialogState(() {});
+                            }
                           },
-                          icon: const Icon(Icons.chat, color: Colors.white),
-                          label: const Text('Abrir WhatsApp'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF25D366), // Color verde de WhatsApp
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
-                          ),
                         ),
-                      ],
+                  const SizedBox(height: 16),
+                  _departamentoSeleccionado == null
+                      ? _buildDisabledDropdown(context, 'Ciudad *', Icons.location_city_rounded, 'Selecciona un dpto. primero')
+                      : _isCargandoCiudades
+                          ? const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                          : _buildPremiumDropdown<Ciudad>(
+                              context: context,
+                              label: 'Ciudad *',
+                              icon: Icons.location_city_rounded,
+                              value: _ciudadSeleccionada,
+                              items: _ciudades.map((c) => 
+                                DropdownMenuItem(value: c, child: Text(c.nombre))
+                              ).toList(),
+                              onChanged: (c) {
+                                setDialogState(() => _ciudadSeleccionada = c);
+                              },
+                            ),
+                  
+                  const SizedBox(height: 24),
+                  _buildSectionTitle(context, 'Detalles Adicionales'),
+                  _buildPremiumTextField(
+                    context: context,
+                    controller: _observacionesController,
+                    label: 'Observaciones (opcional)',
+                    icon: Icons.notes_rounded,
+                    hint: 'Indicaciones para el repartidor...',
+                    maxLines: 2,
+                  ),
+                  
+                  if (metodoPago == 'transferencia') ...[
+                    const SizedBox(height: 24),
+                    _buildTransferenciaInfo(context),
+                  ],
+                  
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (_validarCampos(context)) {
+                          Navigator.of(context).pop({
+                            'direccion': _direccionController.text.trim(),
+                            'telefono': _telefonoController.text.trim(),
+                            'ciudad': _ciudadSeleccionada!.nombre,
+                            'departamento': _departamentoSeleccionado!.nombre,
+                            'observaciones': _observacionesController.text.trim(),
+                          });
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                      ),
+                      child: const Text('Confirmar Pedido', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ),
                   ),
                 ],
-              ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (_direccionController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('La dirección es obligatoria'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                  return;
-                }
-                if (_telefonoController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('El teléfono es obligatorio'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                  return;
-                }
-                if (_departamentoSeleccionado == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Debes seleccionar un departamento'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                  return;
-                }
-                if (_ciudadSeleccionada == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Debes seleccionar una ciudad'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                  return;
-                }
-                Navigator.of(context).pop({
-                  'direccion': _direccionController.text.trim(),
-                  'telefono': _telefonoController.text.trim(),
-                  'ciudad': _ciudadSeleccionada!.nombre,
-                  'departamento': _departamentoSeleccionado!.nombre,
-                  'observaciones': _observacionesController.text.trim(),
-                });
-              },
-              child: const Text('Confirmar'),
-            ),
-          ],
+          );
+        },
+      ),
+    );
+    return result;
+  }
+
+  bool _validarCampos(BuildContext context) {
+    if (_direccionController.text.trim().isEmpty) {
+      _showSnackBar(context, 'La dirección es obligatoria');
+      return false;
+    }
+    if (_telefonoController.text.trim().isEmpty) {
+      _showSnackBar(context, 'El teléfono es obligatorio');
+      return false;
+    }
+    if (_departamentoSeleccionado == null) {
+      _showSnackBar(context, 'Selecciona un departamento');
+      return false;
+    }
+    if (_ciudadSeleccionada == null) {
+      _showSnackBar(context, 'Selecciona una ciudad');
+      return false;
+    }
+    return true;
+  }
+
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.orange),
+    );
+  }
+
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey.shade500,
+          letterSpacing: 1.2,
         ),
       ),
     );
   }
 
+  Widget _buildPremiumTextField({
+    required BuildContext context,
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? hint,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, color: Theme.of(context).primaryColor),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Theme.of(context).primaryColor.withOpacity(0.5)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPremiumDropdown<T>({
+    required BuildContext context,
+    required String label,
+    required IconData icon,
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return DropdownButtonFormField<T>(
+      value: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Theme.of(context).primaryColor),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
+      ),
+      items: items,
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _buildDisabledDropdown(BuildContext context, String label, IconData icon, String hint) {
+    return DropdownButtonFormField<String>(
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Colors.grey),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade100)),
+      ),
+      items: const [],
+      onChanged: null,
+      hint: Text(hint, style: const TextStyle(fontSize: 14)),
+    );
+  }
+
+  Widget _buildTransferenciaInfo(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: Colors.blue.shade700),
+              const SizedBox(width: 12),
+              const Text('Pago por Transferencia', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Para agilizar tu pedido, una vez confirmado, por favor envía el comprobante de pago a nuestro WhatsApp.',
+            style: TextStyle(fontSize: 13, color: Colors.blue.shade900),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                await _abrirWhatsApp();
+              },
+              icon: const Icon(Icons.chat, color: Colors.white, size: 20),
+              label: const Text('Enviar Comprobante', style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF25D366), // Verde WhatsApp
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _enviarPedido() async {
-    print('🚀🚀🚀 CARrito: MÉTODO _enviarPedido EJECUTADO 🚀🚀🚀');
+    debugPrint('🚀🚀🚀 CARrito: MÉTODO _enviarPedido EJECUTADO 🚀🚀🚀');
     debugPrint('🚀 Carrito: Iniciando proceso de envío de pedido...');
     
     final carritoProvider = context.read<CarritoProvider>();
@@ -522,8 +673,14 @@ class _CarritoScreenState extends State<CarritoScreen> {
           ? ahora.add(const Duration(days: 3)) 
           : ahora; // Si es recoger, usar la misma fecha
       
+      // Asegurar que los estados estén cargados
+      if (pedidoProvider.estados.isEmpty) {
+        debugPrint('🔵 Carrito: Cargando estados antes de enviar pedido...');
+        await pedidoProvider.cargarEstados();
+      }
+
       // Obtener el ID del estado "Pendiente"
-      final estadoPendienteId = await pedidoProvider.obtenerEstadoPendienteId();
+      final estadoPendienteId = pedidoProvider.obtenerEstadoPendienteId();
       if (estadoPendienteId == null) {
         throw Exception('No se pudo obtener el estado "Pendiente". Por favor, intenta nuevamente.');
       }
@@ -667,168 +824,256 @@ class _CarritoScreenState extends State<CarritoScreen> {
         foregroundColor: Colors.white,
       ),
       body: carritoProvider.isEmpty
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     Icons.shopping_cart_outlined,
-                    size: 64,
+                    size: Responsive.iconSize(context, 64),
                     color: Colors.grey,
                   ),
-                  SizedBox(height: 16),
+                  SizedBox(height: Responsive.scaleHeight(context, 16)),
                   Text(
                     'Tu carrito está vacío',
                     style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey,
+                      fontSize: Responsive.fontSize(context, 20),
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  SizedBox(height: Responsive.scaleHeight(context, 8)),
+                  Text(
+                    'Agrega productos para comenzar a comprar',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: Responsive.fontSize(context, 14),
+                      color: Colors.grey.shade500,
                     ),
                   ),
                 ],
               ),
             )
-          : Column(
+          : Stack(
               children: [
-                Expanded(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: Responsive.maxWidthConstraint(),
-                      child: ListView.builder(
-                        padding: horizontalPadding.add(const EdgeInsets.only(top: 16, bottom: 16)),
-                        itemCount: carritoProvider.items.length,
-                        itemBuilder: (context, index) {
-                          final item = carritoProvider.items[index];
-                          // Obtener URL de imagen usando idImagen o imagenUrl como fallback
-                          String? urlImagen;
-                          if (item.producto.idImagen != null) {
-                            urlImagen = ProductoService.getUrlImagen(item.producto.idImagen);
-                          }
-                          if (urlImagen == null || urlImagen.isEmpty) {
-                            urlImagen = item.producto.imagenUrl;
-                          }
-                          
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: ListTile(
-                              leading: urlImagen != null && urlImagen.isNotEmpty
-                                  ? Image.network(
-                                      urlImagen,
-                                      width: 60,
-                                      height: 60,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          const Icon(Icons.image_not_supported),
-                                    )
-                                  : const Icon(Icons.image_not_supported),
-                              title: Text(item.producto.nombre),
-                              subtitle: Text(
-                                '${currencyFormat.format(item.producto.precio)} x ${item.cantidad}',
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.remove_circle_outline),
-                                    onPressed: () {
-                                      if (item.cantidad > 1) {
-                                        carritoProvider.actualizarCantidad(
-                                          item.producto.id!,
-                                          item.cantidad - 1,
-                                        );
-                                      } else {
-                                        carritoProvider.eliminarProducto(
-                                          item.producto.id!,
-                                        );
-                                      }
-                                    },
-                                  ),
-                                  Text('${item.cantidad}'),
-                                  IconButton(
-                                    icon: const Icon(Icons.add_circle_outline),
-                                    onPressed: () {
-                                      try {
-                                        carritoProvider.actualizarCantidad(
-                                          item.producto.id!,
-                                          item.cantidad + 1,
-                                        );
-                                      } catch (e) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(e.toString()),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () {
-                                      carritoProvider.eliminarProducto(
-                                        item.producto.id!,
-                                      );
-                                    },
-                                  ),
-                                ],
+                Column(
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: Responsive.maxWidthConstraint(),
+                          child: ListView.builder(
+                            padding: horizontalPadding.add(
+                              EdgeInsets.only(
+                                top: Responsive.scaleHeight(context, 20),
+                                bottom: Responsive.scaleHeight(context, 140), // Espacio para la barra inferior
                               ),
                             ),
-                          );
-                        },
+                            itemCount: carritoProvider.items.length,
+                            itemBuilder: (context, index) {
+                              final item = carritoProvider.items[index];
+                              return CarritoItemCard(
+                                item: item,
+                                onIncrement: () {
+                                  try {
+                                    carritoProvider.actualizarCantidad(
+                                      item.producto.id!,
+                                      item.cantidad + 1,
+                                    );
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(e.toString()),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                },
+                                onDecrement: () {
+                                  if (item.cantidad > 1) {
+                                    carritoProvider.actualizarCantidad(
+                                      item.producto.id!,
+                                      item.cantidad - 1,
+                                    );
+                                  } else {
+                                    carritoProvider.eliminarProducto(
+                                      item.producto.id!,
+                                    );
+                                  }
+                                },
+                                onDelete: () {
+                                  carritoProvider.eliminarProducto(
+                                    item.producto.id!,
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                // Barra de Checkout Premium (Fixed positioned)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: EdgeInsets.fromLTRB(
+                      paddingValue,
+                      Responsive.scaleHeight(context, 24),
+                      paddingValue,
+                      paddingValue + MediaQuery.of(context).padding.bottom,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 20,
+                          offset: const Offset(0, -5),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: Responsive.maxWidthConstraint(maxWidth: 400),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Subtotal:',
+                                      style: TextStyle(
+                                        fontSize: Responsive.fontSize(context, 14),
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${carritoProvider.cantidadTotal} productos',
+                                      style: TextStyle(
+                                        fontSize: Responsive.fontSize(context, 12),
+                                        color: Colors.grey.shade400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  currencyFormat.format(carritoProvider.precioTotal),
+                                  style: TextStyle(
+                                    fontSize: Responsive.fontSize(context, 26),
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: Responsive.scaleHeight(context, 24)),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _isEnviando ? null : _enviarPedido,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Theme.of(context).primaryColor,
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: Responsive.scaleHeight(context, 16),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: _isEnviando
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            'Continuar con el pedido',
+                                            style: TextStyle(
+                                              fontSize: Responsive.fontSize(context, 16),
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                          SizedBox(width: Responsive.scaleWidth(context, 8)),
+                                          const Icon(Icons.arrow_forward_rounded, size: 20),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-                Container(
-                  padding: EdgeInsets.all(paddingValue),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.3),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: const Offset(0, -2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Total:',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            currencyFormat.format(carritoProvider.precioTotal),
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      CustomButton(
-                        text: _isEnviando ? 'Enviando...' : 'Enviar Pedido',
-                        onPressed: _isEnviando ? null : () {
-                          print('🔴🔴🔴 BOTÓN PRESIONADO 🔴🔴🔴');
-                          _enviarPedido();
-                        },
-                        backgroundColor: const Color(0xFF4CAF50),
-                        isLoading: _isEnviando,
-                        icon: Icons.send,
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
+    );
+  }
+}
+
+class _OptionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _OptionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.1)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 28),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: onTap,
+      ),
     );
   }
 }

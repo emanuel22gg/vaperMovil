@@ -13,7 +13,8 @@ class PedidoService {
     try {
       Map<String, String>? queryParams;
       if (usuarioId != null) {
-        queryParams = {'usuarioId': usuarioId.toString()};
+        // Usar UsuarioId (PascalCase) que suele ser el estándar en .NET
+        queryParams = {'UsuarioId': usuarioId.toString()};
       }
 
       final response = await ApiService.get(

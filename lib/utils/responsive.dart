@@ -5,6 +5,9 @@ class Responsive {
   static const double tabletBreakpoint = 720;
   static const double desktopBreakpoint = 1100;
 
+  // Base width usada para escalar tamaños (iPhone 8-ish)
+  static const double _baseWidth = 375.0;
+
   /// Número de columnas sugerido para grids.
   static int gridCount(
     double width, {
@@ -27,6 +30,39 @@ class Responsive {
   /// Limita el ancho máximo para centrar contenido en pantallas amplias.
   static BoxConstraints maxWidthConstraint({double maxWidth = 1200}) {
     return BoxConstraints(maxWidth: maxWidth);
+  }
+
+  /// Escala un tamaño (ancho) basado en el ancho de la pantalla y una base.
+  /// Útil para anchos, alturas e imágenes.
+  static double scaleWidth(BuildContext context, double size) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Evitar factor extremadamente pequeño/alto
+    final factor = (screenWidth / _baseWidth).clamp(0.6, 2.5);
+    return size * factor;
+  }
+
+  /// Escala un tamaño (altura) basado en la altura de la pantalla y una base.
+  static double scaleHeight(BuildContext context, double size) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    // Usamos una base aproximada de 812 para alturas (iPhone X)
+    const baseHeight = 812.0;
+    final factor = (screenHeight / baseHeight).clamp(0.6, 2.5);
+    return size * factor;
+  }
+
+  /// Escala tamaño de fuente de forma conservadora.
+  static double fontSize(BuildContext context, double size) {
+    // Tomar el promedio de factores ancho/alto para texto más estable
+    final screen = MediaQuery.of(context).size;
+    final widthFactor = (screen.width / _baseWidth).clamp(0.75, 1.8);
+    final heightFactor = (screen.height / 812.0).clamp(0.75, 1.8);
+    final factor = (widthFactor + heightFactor) / 2;
+    return size * factor;
+  }
+
+  /// Tamaño de icono escalado.
+  static double iconSize(BuildContext context, double size) {
+    return scaleWidth(context, size);
   }
 }
 

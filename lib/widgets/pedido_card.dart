@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/venta_pedido_model.dart';
 import '../models/estado_model.dart';
 import '../providers/pedido_provider.dart';
+import '../utils/responsive.dart';
 
 /// Card de pedido
 class PedidoCard extends StatelessWidget {
@@ -34,7 +35,7 @@ class PedidoCard extends StatelessWidget {
 
   void _cambiarEstado(BuildContext context) async {
     final pedidoProvider = context.read<PedidoProvider>();
-    
+
     // Verificar si el pedido está entregado o cancelado
     if (_esEstadoEntregado(pedido, pedidoProvider)) {
       if (context.mounted) {
@@ -61,17 +62,17 @@ class PedidoCard extends StatelessWidget {
       }
       return;
     }
-    
+
     debugPrint('🔵 PedidoCard: Iniciando cambio de estado');
     debugPrint('🔵 PedidoCard: Estados actuales: ${pedidoProvider.estados.length}');
-    
+
     // Siempre recargar estados para asegurar que estén actualizados
     await pedidoProvider.cargarEstados();
-    
+
     debugPrint('🔵 PedidoCard: Estados después de cargar: ${pedidoProvider.estados.length}');
 
     if (!context.mounted) return;
-    
+
     if (pedidoProvider.estados.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -104,7 +105,7 @@ class PedidoCard extends StatelessWidget {
                 orElse: () => provider.estados.first,
               );
             }
-            
+
             return AlertDialog(
               title: Text('Cambiar Estado - Pedido #${pedido.id}'),
               content: SizedBox(
@@ -117,7 +118,7 @@ class PedidoCard extends StatelessWidget {
                         ),
                       )
                     : DropdownButtonFormField<Estado>(
-                        value: estadoSeleccionado,
+                        initialValue: estadoSeleccionado,
                         decoration: const InputDecoration(
                           labelText: 'Selecciona un estado',
                           border: OutlineInputBorder(),
@@ -173,7 +174,7 @@ class PedidoCard extends StatelessWidget {
         (e) => e.id == nuevoEstado,
         orElse: () => Estado(id: null, nombre: ''),
       );
-      
+
       if (_esEstadoEntregado(pedido, pedidoProvider) && 
           estadoSeleccionado.nombre.toLowerCase().trim() == 'pendiente') {
         if (context.mounted) {
@@ -220,18 +221,19 @@ class PedidoCard extends StatelessWidget {
     if (pedido.estado?.nombre != null && pedido.estado!.nombre.isNotEmpty) {
       return pedido.estado!.nombre;
     }
-    
+
     // Si no está disponible, buscar en la lista de estados cargados usando estadoId
     if (pedido.estadoId != null && provider.estados.isNotEmpty) {
       final estado = provider.estados.firstWhere(
         (e) => e.id == pedido.estadoId,
-        orElse: () => Estado(id: null, nombre: 'Sin estado'),
+        orElse: () => Estado(id: null, nombre: 'Sin estado',
+        ),
       );
       if (estado.nombre.isNotEmpty) {
         return estado.nombre;
       }
     }
-    
+
     return 'Sin estado';
   }
 
@@ -257,124 +259,178 @@ class PedidoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+    final pedidoProvider = context.watch<PedidoProvider>();
+    final nombreEstado = _obtenerNombreEstado(pedido, pedidoProvider);
+    final colorEstado = _getEstadoColor(nombreEstado);
 
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+    return Container(
+      margin: EdgeInsets.symmetric(
+        horizontal: Responsive.scaleWidth(context, 16),
+        vertical: Responsive.scaleHeight(context, 8),
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Pedido #${pedido.id ?? 'N/A'}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      if (allowEstadoChange)
-                        Builder(
-                          builder: (context) {
-                            final pedidoProvider = context.watch<PedidoProvider>();
-                            final esEntregado = _esEstadoEntregado(pedido, pedidoProvider);
-                            final esCancelado = _esEstadoCancelado(pedido, pedidoProvider);
-                            final esBloqueado = esEntregado || esCancelado;
-                            return IconButton(
-                              icon: const Icon(Icons.edit, size: 18),
-                              color: esBloqueado ? Colors.grey[400] : Colors.grey[600],
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: esBloqueado ? null : () => _cambiarEstado(context),
-                              tooltip: esBloqueado ? 'No se puede cambiar el estado de un pedido finalizado o cancelado' : 'Cambiar estado',
-                            );
-                          },
+              // Lateral status bar
+              Container(
+                width: 6,
+                color: colorEstado,
+              ),
+              Expanded(
+                child: InkWell(
+                  onTap: onTap,
+                  child: Padding(
+                    padding: EdgeInsets.all(Responsive.scaleWidth(context, 16)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '#${pedido.id ?? 'N/A'}',
+                                style: TextStyle(
+                                  fontSize: Responsive.fontSize(context, 14),
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: colorEstado.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: colorEstado.withOpacity(0.2)),
+                              ),
+                              child: Text(
+                                nombreEstado.toUpperCase(),
+                                style: TextStyle(
+                                  color: colorEstado,
+                                  fontSize: Responsive.fontSize(context, 10),
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      if (allowEstadoChange) const SizedBox(width: 8),
-                  Builder(
-                    builder: (context) {
-                      final pedidoProvider = context.watch<PedidoProvider>();
-                      final nombreEstado = _obtenerNombreEstado(pedido, pedidoProvider);
-                      return Chip(
-                        label: Text(
-                          nombreEstado,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                        SizedBox(height: Responsive.scaleHeight(context, 16)),
+                        if (showCliente && pedido.usuario != null) ...[
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue[50],
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.person, size: Responsive.iconSize(context, 14), color: Colors.blue[700]),
+                              ),
+                              SizedBox(width: Responsive.scaleWidth(context, 10)),
+                              Expanded(
+                                child: Text(
+                                  pedido.usuario!.nombre,
+                                  style: TextStyle(
+                                    fontSize: Responsive.fontSize(context, 16),
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
+                          SizedBox(height: Responsive.scaleHeight(context, 10)),
+                        ],
+                        Row(
+                          children: [
+                            Icon(Icons.access_time_rounded, size: Responsive.iconSize(context, 16), color: Colors.grey[500]),
+                            SizedBox(width: Responsive.scaleWidth(context, 6)),
+                            Text(
+                              pedido.fechaCreacion != null
+                                  ? dateFormat.format(pedido.fechaCreacion!)
+                                  : 'Fecha no disponible',
+                              style: TextStyle(
+                                fontSize: Responsive.fontSize(context, 13),
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
-                        backgroundColor: _getEstadoColor(nombreEstado),
-                      );
-                    },
-                  ),
-                    ],
-                  ),
-                ],
-              ),
-              if (showCliente && pedido.usuario != null) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.person, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(
-                      pedido.usuario!.nombre,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
+                        SizedBox(height: Responsive.scaleHeight(context, 16)),
+                        const Divider(height: 1),
+                        SizedBox(height: Responsive.scaleHeight(context, 12)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'VENTA TOTAL',
+                                  style: TextStyle(
+                                    fontSize: Responsive.fontSize(context, 10),
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[500],
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                                Text(
+                                  currencyFormat.format(pedido.total),
+                                  style: TextStyle(
+                                    fontSize: Responsive.fontSize(context, 20),
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (allowEstadoChange)
+                              Builder(
+                                builder: (context) {
+                                  final esEntregado = _esEstadoEntregado(pedido, pedidoProvider);
+                                  final esCancelado = _esEstadoCancelado(pedido, pedidoProvider);
+                                  final esBloqueado = esEntregado || esCancelado;
+                                  return OutlinedButton.icon(
+                                    onPressed: esBloqueado ? null : () => _cambiarEstado(context),
+                                    icon: Icon(Icons.edit_note, size: Responsive.iconSize(context, 18)),
+                                    label: const Text('ESTADO'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.black87,
+                                      side: BorderSide(color: Colors.grey[300]!),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    ),
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ],
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    pedido.fechaCreacion != null
-                        ? dateFormat.format(pedido.fechaCreacion!)
-                        : 'Fecha no disponible',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Total:',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    currencyFormat.format(pedido.total),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ],
               ),
             ],
           ),

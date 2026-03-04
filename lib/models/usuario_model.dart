@@ -61,7 +61,7 @@ class Usuario {
     }
 
     return Usuario(
-      id: json['id'] as int?,
+      id: json['id'] as int? ?? json['Id'] as int?,
       nombre: nombre,
       email: email,
       password: password,

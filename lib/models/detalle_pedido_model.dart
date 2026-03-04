@@ -24,20 +24,66 @@ class DetallePedido {
   });
 
   factory DetallePedido.fromJson(Map<String, dynamic> json) {
+    // Mapear ventaPedidoId desde diferentes posibles campos
+    final ventaPedidoId = (json['ventaPedidoId'] as int?) ??
+                          (json['VentaPedidoId'] as int?) ??
+                          (json['idVentaPedido'] as int?) ??
+                          (json['IdVentaPedido'] as int?) ??
+                          (json['ventaPedidoID'] as int?) ??
+                          (json['VentaPedidoID'] as int?) ??
+                          (json['pedidoId'] as int?) ??
+                          (json['PedidoId'] as int?) ??
+                          (json['idVenta'] as int?) ??
+                          (json['IdVenta'] as int?);
+
+    // Mapear productoId desde diferentes posibles campos
+    final productoId = (json['productoId'] as int?) ??
+                        (json['ProductoId'] as int?) ??
+                        (json['idProducto'] as int?) ??
+                        (json['IdProducto'] as int?) ??
+                        (json['productoID'] as int?) ??
+                        (json['ProductoID'] as int?);
+
+    // Mapear cantidad desde diferentes posibles campos
+    final cantidad = (json['cantidad'] as int?) ??
+                      (json['Cantidad'] as int?) ??
+                      (json['cant'] as int?) ??
+                      (json['Cant'] as int?) ??
+                      0;
+
+    // Mapear precioUnitario desde diferentes posibles campos
+    final precioUnitario = (json['precioUnitario'] as num?)?.toDouble() ??
+                            (json['PrecioUnitario'] as num?)?.toDouble() ??
+                            (json['precio'] as num?)?.toDouble() ??
+                            (json['Precio'] as num?)?.toDouble() ??
+                            (json['valorUnitario'] as num?)?.toDouble() ??
+                            (json['ValorUnitario'] as num?)?.toDouble() ??
+                            0.0;
+
+    // Mapear subtotal desde diferentes posibles campos
+    final subtotal = (json['subtotal'] as num?)?.toDouble() ??
+                      (json['Subtotal'] as num?)?.toDouble() ??
+                      (json['total'] as num?)?.toDouble() ??
+                      (json['Total'] as num?)?.toDouble() ??
+                      0.0;
+
     return DetallePedido(
-      id: json['id'] as int?,
-      ventaPedidoId: json['ventaPedidoId'] as int?,
-      ventaPedido: json['ventaPedido'] != null
+      id: json['id'] as int? ?? json['Id'] as int?,
+      ventaPedidoId: ventaPedidoId,
+      ventaPedido: (json['ventaPedido'] != null)
           ? VentaPedido.fromJson(json['ventaPedido'] as Map<String, dynamic>)
-          : null,
-      productoId: json['productoId'] as int?,
-      producto: json['producto'] != null
+          : (json['VentaPedido'] != null
+              ? VentaPedido.fromJson(json['VentaPedido'] as Map<String, dynamic>)
+              : null),
+      productoId: productoId,
+      producto: (json['producto'] != null)
           ? Producto.fromJson(json['producto'] as Map<String, dynamic>)
-          : null,
-      cantidad: json['cantidad'] as int? ?? 0,
-      precioUnitario:
-          (json['precioUnitario'] as num?)?.toDouble() ?? 0.0,
-      subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
+          : (json['Producto'] != null
+              ? Producto.fromJson(json['Producto'] as Map<String, dynamic>)
+              : null),
+      cantidad: cantidad,
+      precioUnitario: precioUnitario,
+      subtotal: subtotal,
     );
   }
 

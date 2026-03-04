@@ -31,16 +31,23 @@ class _MisPedidosScreenState extends State<MisPedidosScreen> {
     final pedidoProvider = context.read<PedidoProvider>();
 
     if (authProvider.currentUser?.id != null) {
-      await Future.wait([
-        pedidoProvider.cargarPedidos(
-          usuarioId: authProvider.currentUser!.id,
-        ),
-        pedidoProvider.cargarEstados(), // Cargar estados para poder mostrar los nombres
-      ]);
+      // Cargamos secuencialmente para evitar errores de conexión simultánea
+      // Pasamos el usuario actual para evitar que PedidoProvider intente descargarlo de nuevo
+      await pedidoProvider.cargarPedidos(
+        usuarioId: authProvider.currentUser!.id,
+        currentUser: authProvider.currentUser,
+      );
+      
+      // Pequeña pausa para no saturar al servidor
+      await Future.delayed(const Duration(milliseconds: 600));
+      
+      await pedidoProvider.cargarEstados();
     }
   }
 
   void _verDetalle(int pedidoId) {
+    if (pedidoId <= 0) return;
+    
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PedidoDetalleClienteScreen(pedidoId: pedidoId),
@@ -196,17 +203,12 @@ class _PedidoDetalleClienteScreenState
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Builder(
-                              builder: (context) {
-                                final nombreEstado = _obtenerNombreEstado(pedido, pedidoProvider);
-                                return Text(
-                                  'Estado: $nombreEstado',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                );
-                              },
+                            const Text(
+                              'Estado:',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             Builder(
                               builder: (context) {

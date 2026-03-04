@@ -1,7 +1,13 @@
 {
   "ExpandedNodes": [
     "",
-    "\\lib"
+    "\\lib",
+    "\\lib\\models",
+    "\\lib\\providers",
+    "\\lib\\screens",
+    "\\lib\\services",
+    "\\lib\\widgets"
   ],
+  "SelectedNode": "\\ios",
   "PreviewInSolutionExplorer": false
 }

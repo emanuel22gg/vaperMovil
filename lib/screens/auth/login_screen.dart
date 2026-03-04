@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/auth_provider.dart';
-import '../../providers/carrito_provider.dart';
 import '../cliente/categorias_screen.dart';
 import '../admin/pedidos_admin_screen.dart';
 import 'forgot_password_screen.dart';
+
 import '../../utils/responsive.dart';
 
-/// Pantalla de Login
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -19,190 +19,159 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
+  bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
-    final authProvider = context.read<AuthProvider>();
-    final carritoProvider = context.read<CarritoProvider>();
+    setState(() => _isLoading = true);
 
-    final success = await authProvider.login(
-      _emailController.text.trim(),
-      _passwordController.text,
-    );
+    try {
+      final authProvider = context.read<AuthProvider>();
 
-    if (!mounted) return;
+      final success = await authProvider.login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
 
-    if (success) {
-      carritoProvider.limpiarCarrito();
+      if (!mounted) return;
 
-      if (authProvider.isAdmin) {
+      if (success) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => const PedidosAdminScreen(),
+            builder: (_) =>
+                authProvider.isAdmin
+                    ? const PedidosAdminScreen()
+                    : const CategoriasScreen(),
           ),
         );
       } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => const CategoriasScreen(),
-          ),
-        );
+        _showError(authProvider.error ?? 'Credenciales incorrectas');
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authProvider.error ?? 'Error al iniciar sesión'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    } catch (e) {
+      _showError('Error al iniciar sesión: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    final padding = EdgeInsets.all(Responsive.pagePadding(width));
+    final padding = Responsive.pagePadding(width);
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: padding,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: Responsive.maxWidthConstraint(maxWidth: 420),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Icon(
-                        Icons.vaping_rooms,
-                        size: 80,
-                        color: Colors.black,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(padding),
+          child: ConstrainedBox(
+            constraints: Responsive.maxWidthConstraint(maxWidth: 400),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/images/vaper_logo.png',
+                    height: Responsive.scaleHeight(context, 120),
+                  ),
+                  SizedBox(height: Responsive.scaleHeight(context, 12)),
+                  Text(
+                    'Vaper Móvil',
+                    style: TextStyle(
+                      fontSize: Responsive.fontSize(context, 28),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: Responsive.scaleHeight(context, 32)),
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (value) =>
+                        value == null || value.isEmpty
+                            ? 'Ingrese el email'
+                            : null,
+                  ),
+                  SizedBox(height: Responsive.scaleHeight(context, 16)),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: !_isPasswordVisible,
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _isPasswordVisible
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _isPasswordVisible = !_isPasswordVisible;
+                          });
+                        },
                       ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Vaper Móvil',
-                        style: TextStyle(
-                          fontSize: 32,
+                    ),
+                    validator: (value) =>
+                        value == null || value.isEmpty
+                            ? 'Ingrese la contraseña'
+                            : null,
+                  ),
+                  SizedBox(height: Responsive.scaleHeight(context, 24)),
+                  SizedBox(
+                    width: double.infinity,
+                    height: Responsive.scaleHeight(context, 50),
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleLogin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        textStyle: TextStyle(
+                          fontSize: Responsive.fontSize(context, 16),
                           fontWeight: FontWeight.bold,
                         ),
-                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Inicia sesión para continuar',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 48),
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          prefixIcon: Icon(Icons.email),
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Por favor ingresa tu email';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Ingresa un email válido';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        decoration: InputDecoration(
-                          labelText: 'Contraseña',
-                          prefixIcon: const Icon(Icons.lock),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
-                          ),
-                          border: const OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Por favor ingresa tu contraseña';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 24),
-                      Consumer<AuthProvider>(
-                        builder: (context, authProvider, _) {
-                          return ElevatedButton(
-                            onPressed: authProvider.isLoading ? null : _handleLogin,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: authProvider.isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor:
-                                          AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                : const Text(
-                                    'Iniciar Sesión',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const ForgotPasswordScreen(),
-                            ),
-                          );
-                        },
-                        child: const Text('¿Olvidaste tu contraseña?'),
-                      ),
-                    ],
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Iniciar Sesión'),
+                    ),
                   ),
-                ),
+                  SizedBox(height: Responsive.scaleHeight(context, 16)),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ForgotPasswordScreen(),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      '¿Olvidaste tu contraseña?',
+                      style: TextStyle(
+                        fontSize: Responsive.fontSize(context, 14),
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -211,4 +180,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
