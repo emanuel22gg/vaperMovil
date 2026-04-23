@@ -11,10 +11,12 @@ import '../../models/departamento_model.dart';
 import '../../models/ciudad_model.dart';
 import '../../services/producto_service.dart';
 import '../../services/ubicacion_service.dart';
+import '../../services/imagen_service.dart';
 import '../../config/api_config.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/carrito_item_card.dart';
 import '../../utils/responsive.dart';
+import 'package:image_picker/image_picker.dart';
 
 /// Pantalla del carrito de compras
 class CarritoScreen extends StatefulWidget {
@@ -37,6 +39,8 @@ class _CarritoScreenState extends State<CarritoScreen> {
   Ciudad? _ciudadSeleccionada;
   bool _isCargandoDepartamentos = false;
   bool _isCargandoCiudades = false;
+
+  XFile? _comprobanteSeleccionado;
 
   @override
   void dispose() {
@@ -253,6 +257,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
     _departamentoSeleccionado = null;
     _ciudadSeleccionada = null;
     _ciudades = [];
+    _comprobanteSeleccionado = null;
 
     await _cargarDepartamentos();
 
@@ -391,7 +396,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
                     height: 56,
                     child: ElevatedButton(
                       onPressed: () {
-                        if (_validarCampos(context)) {
+                        if (_validarCampos(context, metodoPago)) {
                           Navigator.of(context).pop({
                             'direccion': _direccionController.text.trim(),
                             'telefono': _telefonoController.text.trim(),
@@ -420,7 +425,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
     return result;
   }
 
-  bool _validarCampos(BuildContext context) {
+  bool _validarCampos(BuildContext context, String metodoPago) {
     if (_direccionController.text.trim().isEmpty) {
       _showSnackBar(context, 'La dirección es obligatoria');
       return false;
@@ -435,6 +440,10 @@ class _CarritoScreenState extends State<CarritoScreen> {
     }
     if (_ciudadSeleccionada == null) {
       _showSnackBar(context, 'Selecciona una ciudad');
+      return false;
+    }
+    if (metodoPago == 'transferencia' && _comprobanteSeleccionado == null) {
+      _showSnackBar(context, 'Debes adjuntar el comprobante de transferencia');
       return false;
     }
     return true;
@@ -555,20 +564,62 @@ class _CarritoScreenState extends State<CarritoScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Para agilizar tu pedido, una vez confirmado, por favor envía el comprobante de pago a nuestro WhatsApp.',
+            'Por favor, adjunta el comprobante de tu transferencia para poder procesar tu pedido.',
             style: TextStyle(fontSize: 13, color: Colors.blue.shade900),
           ),
           const SizedBox(height: 16),
+          if (_comprobanteSeleccionado != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.image, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _comprobanteSeleccionado!.name,
+                      style: const TextStyle(fontSize: 13),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.red, size: 20),
+                    onPressed: () {
+                      if (context.mounted) {
+                        (context as Element).markNeedsBuild();
+                      }
+                      _comprobanteSeleccionado = null;
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () async {
-                await _abrirWhatsApp();
+                final imagen = await ImagenService.seleccionarImagen();
+                if (imagen != null) {
+                  if (context.mounted) {
+                    (context as Element).markNeedsBuild();
+                  }
+                  _comprobanteSeleccionado = imagen;
+                }
               },
-              icon: const Icon(Icons.chat, color: Colors.white, size: 20),
-              label: const Text('Enviar Comprobante', style: TextStyle(fontWeight: FontWeight.bold)),
+              icon: Icon(_comprobanteSeleccionado == null ? Icons.upload_file : Icons.edit, color: Colors.white, size: 20),
+              label: Text(_comprobanteSeleccionado == null ? 'Seleccionar Comprobante' : 'Cambiar Imagen', style: const TextStyle(fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF25D366), // Verde WhatsApp
+                backgroundColor: Colors.blue.shade700,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
@@ -642,9 +693,6 @@ class _CarritoScreenState extends State<CarritoScreen> {
         debugPrint('⚠️ Carrito: Usuario canceló diálogo de datos de entrega');
         return;
       }
-
-      // Para transferencia, el comprobante se envía por WhatsApp
-      // No necesitamos subir nada, solo indicar que el método de pago es transferencia
     } else if (tipoEntrega == 'recoger') {
       // Para recoger en punto físico, no necesitamos método de pago ni datos de entrega
       debugPrint('🔵 Carrito: Tipo de entrega: Recoger en punto físico');
@@ -694,7 +742,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
       debugPrint('  - Tipo entrega: $tipoEntrega');
       debugPrint('  - Método pago: $metodoPago');
       
-      final pedido = VentaPedido(
+      var pedido = VentaPedido(
         usuarioId: authProvider.currentUser!.id,
         estadoId: estadoPendienteId, // Pendiente
         fechaCreacion: ahora,
@@ -720,8 +768,21 @@ class _CarritoScreenState extends State<CarritoScreen> {
         observaciones: tipoEntrega == 'domicilio' && datosEntrega != null && datosEntrega['observaciones']!.isNotEmpty
             ? datosEntrega['observaciones']
             : null,
-        comprobanteUrl: null, // Ya no se sube, se envía por WhatsApp
+        comprobanteUrl: null, // Se asignará si sube imagen
       );
+
+      // Si es transferencia y hay un comprobante seleccionado, subirlo
+      if (metodoPago == 'transferencia' && _comprobanteSeleccionado != null) {
+        debugPrint('🔵 Carrito: Subiendo comprobante de transferencia...');
+        final urlImagen = await ImagenService.subirImagenMultipart(_comprobanteSeleccionado!.path);
+        
+        if (urlImagen != null && urlImagen.isNotEmpty) {
+          debugPrint('✅ Carrito: Comprobante subido, url: $urlImagen');
+          pedido = pedido.copyWith(comprobanteUrl: urlImagen);
+        } else {
+          throw Exception('No se pudo subir el comprobante. Por favor intenta de nuevo.');
+        }
+      }
 
       // Crear detalles
       final detalles = carritoProvider.items.map((item) {

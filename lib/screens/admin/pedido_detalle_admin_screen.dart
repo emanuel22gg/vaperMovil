@@ -8,6 +8,7 @@ import '../../models/estado_model.dart';
 import '../../services/producto_service.dart';
 import '../../widgets/custom_button.dart';
 import '../../utils/responsive.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Pantalla de detalle de pedido (Administrador)
 class PedidoDetalleAdminScreen extends StatefulWidget {
@@ -709,8 +710,42 @@ class _PedidoDetalleAdminScreenState
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: InkWell(
-        onTap: () {
-          // url_launcher logic would go here
+        onTap: () async {
+          showDialog(
+            context: context,
+            builder: (context) => Dialog(
+              backgroundColor: Colors.transparent,
+              child: Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  InteractiveViewer(
+                    child: Image.network(
+                      url,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.white,
+                          padding: const EdgeInsets.all(20),
+                          child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                              SizedBox(height: 10),
+                              Text('No se pudo cargar la imagen'),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+          );
         },
         child: Container(
           padding: const EdgeInsets.all(12),

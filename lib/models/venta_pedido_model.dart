@@ -159,6 +159,10 @@ class VentaPedido {
       json['departamentoEntrega'] = departamentoEntrega;
     }
     
+    if (comprobanteUrl != null && comprobanteUrl!.isNotEmpty) {
+      json['comprobanteUrl'] = comprobanteUrl;
+    }
+    
     // Log para debugging
     debugPrint('🔵 VentaPedido.toJson(): ${jsonEncode(json)}');
     

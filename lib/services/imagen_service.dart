@@ -151,5 +151,42 @@ class ImagenService {
       return null;
     }
   }
+
+  /// Subir imagen mediante Multipart form-data a /api/Imagenes/subir
+  static Future<String?> subirImagenMultipart(String rutaOArchivo) async {
+    try {
+      final file = File(rutaOArchivo);
+      if (!await file.exists()) {
+        debugPrint('❌ ImagenService: El archivo no existe: $rutaOArchivo');
+        return null;
+      }
+
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConfig.baseUrl}/api/Imagenes/subir'),
+      );
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'imagen',
+          file.path,
+        ),
+      );
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        return responseData['urlimagen'] as String?;
+      } else {
+        debugPrint('❌ ImagenService: Error al subir multipart ${response.statusCode}: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('❌ ImagenService: Error al subir imagen multipart: $e');
+      return null;
+    }
+  }
 }
 
