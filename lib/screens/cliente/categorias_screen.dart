@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/carrito_provider.dart';
 import '../../services/categoria_service.dart';
+import '../../services/producto_service.dart';
 import '../../models/categoria_model.dart';
+import '../../models/producto_model.dart';
 import '../../widgets/categoria_card.dart';
 import 'productos_screen.dart';
 import 'carrito_screen.dart';
@@ -38,12 +40,30 @@ class _CategoriasScreenState extends State<CategoriasScreen> {
     });
 
     try {
-      final categorias = await CategoriaService.getCategorias();
+      // Cargar categorías y productos en paralelo
+      final results = await Future.wait([
+        CategoriaService.getCategorias(),
+        ProductoService.getProductos(),
+      ]);
+      
+      final allCategorias = results[0] as List<Categoria>;
+      final allProductos = results[1] as List<Producto>;
+      
+      // Obtener IDs de categorías que tienen al menos un producto registrado
+      final categoriasConProductosIds = allProductos
+          .where((p) => p.categoriaId != null)
+          .map((p) => p.categoriaId!)
+          .toSet();
+      
       setState(() {
-        _categorias = categorias;
+        // Filtrar categorías: solo las que tienen productos registrados
+        _categorias = allCategorias
+            .where((c) => c.id != null && categoriasConProductosIds.contains(c.id))
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
+      debugPrint('❌ CategoriasScreen: Error al cargar categorías/productos: $e');
       setState(() {
         _error = e.toString();
         _isLoading = false;

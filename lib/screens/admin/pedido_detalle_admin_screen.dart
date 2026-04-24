@@ -159,18 +159,20 @@ class _PedidoDetalleAdminScreenState
                           prefixIcon: Icon(Icons.flag),
                         ),
                         items: provider.estados.where((estado) {
-                          // Si el pedido está entregado, no permitir cambiar a pendiente
-                          final nombreEstadoActual = _obtenerNombreEstado(pedido, provider);
-                          final esEntregado = nombreEstadoActual.toLowerCase().trim() == 'entregado';
-                          if (esEntregado) {
-                            // Si está entregado, no permitir cambiar a pendiente
-                            return estado.nombre.toLowerCase().trim() != 'pendiente';
-                          }
-                          return true; // Permitir todos los estados si no está entregado
+                          final name = estado.nombre.toLowerCase().trim();
+                          return name == 'pendiente' || 
+                                 name == 'entregado' || 
+                                 name == 'anulada' || 
+                                 name == 'anulado' || 
+                                 name == 'cancelado';
                         }).map((estado) {
+                          String label = estado.nombre;
+                          final name = estado.nombre.toLowerCase().trim();
+                          if (name == 'anulada' || name == 'anulado') label = 'Cancelado';
+                          
                           return DropdownMenuItem<Estado>(
                             value: estado,
-                            child: Text(estado.nombre),
+                            child: Text(label),
                           );
                         }).toList(),
                         onChanged: (estado) {

@@ -238,12 +238,25 @@ class _PedidosAdminScreenState extends State<PedidosAdminScreen> {
                       value: 'TODOS',
                       child: Text('Todos los Estados'),
                     ),
-                    ...pedidoProvider.estados.map(
-                      (e) => DropdownMenuItem(
-                        value: e.nombre,
-                        child: Text(e.nombre),
-                      ),
-                    ),
+                    ...pedidoProvider.estados
+                        .where((e) {
+                          final name = e.nombre.toLowerCase().trim();
+                          return name == 'pendiente' || 
+                                 name == 'entregado' || 
+                                 name == 'anulada' || 
+                                 name == 'anulado' || 
+                                 name == 'cancelado';
+                        })
+                        .map((e) {
+                          String label = e.nombre;
+                          final name = e.nombre.toLowerCase().trim();
+                          if (name == 'anulada' || name == 'anulado') label = 'Cancelado';
+                          
+                          return DropdownMenuItem(
+                            value: e.nombre,
+                            child: Text(label),
+                          );
+                        }),
                   ],
                   onChanged: (v) {
                     if (v != null) setState(() => _filtroEstado = v);

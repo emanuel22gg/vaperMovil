@@ -14,6 +14,8 @@ class Usuario {
   final int? rolId;
   final String? telefono;
   final String? direccion;
+  final String? departamento;
+  final String? ciudad;
 
   Usuario({
     this.id,
@@ -24,6 +26,8 @@ class Usuario {
     this.rolId,
     this.telefono,
     this.direccion,
+    this.departamento,
+    this.ciudad,
   });
 
   /// Mapea tanto el esquema genérico (nombre, email, password, rol)
@@ -69,6 +73,8 @@ class Usuario {
       rolId: rolId,
       telefono: json['telefono'] as String?,
       direccion: json['direccion'] as String?,
+      departamento: json['departamento'] as String?,
+      ciudad: json['ciudad'] as String?,
     );
   }
 
@@ -84,6 +90,8 @@ class Usuario {
       'rol': rol,
       if (telefono != null) 'telefono': telefono,
       if (direccion != null) 'direccion': direccion,
+      if (departamento != null) 'departamento': departamento,
+      if (ciudad != null) 'ciudad': ciudad,
       // Campos esperados por la API
       'nombres': nombre, // no separamos nombre/apellido aquí
       'correo': email,
@@ -101,6 +109,8 @@ class Usuario {
     int? rolId,
     String? telefono,
     String? direccion,
+    String? departamento,
+    String? ciudad,
   }) {
     return Usuario(
       id: id ?? this.id,
@@ -111,6 +121,8 @@ class Usuario {
       rolId: rolId ?? this.rolId,
       telefono: telefono ?? this.telefono,
       direccion: direccion ?? this.direccion,
+      departamento: departamento ?? this.departamento,
+      ciudad: ciudad ?? this.ciudad,
     );
   }
 }

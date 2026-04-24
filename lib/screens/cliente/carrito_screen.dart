@@ -251,9 +251,26 @@ class _CarritoScreenState extends State<CarritoScreen> {
   }
 
   Future<Map<String, String>?> _mostrarDialogoDomicilio(String metodoPago) async {
+    final authProvider = context.read<AuthProvider>();
+    final usuario = authProvider.currentUser;
+    
+    bool tieneDireccionRegistrada = usuario != null && 
+                                    usuario.direccion != null && 
+                                    usuario.direccion!.isNotEmpty && 
+                                    usuario.telefono != null && 
+                                    usuario.telefono!.isNotEmpty;
+                                    
+    bool usarDireccionAlternativa = !tieneDireccionRegistrada;
+
     _direccionController.clear();
     _telefonoController.clear();
     _observacionesController.clear();
+    
+    if (tieneDireccionRegistrada) {
+      _direccionController.text = usuario.direccion!;
+      _telefonoController.text = usuario.telefono!;
+    }
+    
     _departamentoSeleccionado = null;
     _ciudadSeleccionada = null;
     _ciudades = [];
@@ -316,63 +333,194 @@ class _CarritoScreenState extends State<CarritoScreen> {
                   const SizedBox(height: 24),
                   
                   _buildSectionTitle(context, 'Información del Receptor'),
-                  _buildPremiumTextField(
-                    context: context,
-                    controller: _direccionController,
-                    label: 'Dirección de entrega *',
-                    icon: Icons.home_rounded,
-                    hint: 'Ej: Calle 123 #45-67',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildPremiumTextField(
-                    context: context,
-                    controller: _telefonoController,
-                    label: 'Teléfono de contacto *',
-                    icon: Icons.phone_android_rounded,
-                    hint: 'Tu número de celular',
-                    keyboardType: TextInputType.phone,
-                  ),
                   
-                  const SizedBox(height: 24),
-                  _buildSectionTitle(context, 'Ubicación'),
-                  _isCargandoDepartamentos
-                      ? const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
-                      : _buildPremiumDropdown<Departamento>(
-                          context: context,
-                          label: 'Departamento *',
-                          icon: Icons.map_rounded,
-                          value: _departamentoSeleccionado,
-                          items: _departamentos.map((d) => 
-                            DropdownMenuItem(value: d, child: Text(d.nombre))
-                          ).toList(),
-                          onChanged: (d) async {
-                            setDialogState(() {
-                              _departamentoSeleccionado = d;
-                              _ciudadSeleccionada = null;
-                            });
-                            if (d != null && d.id != null) {
-                              await _cargarCiudades(d.id!);
-                              setDialogState(() {});
-                            }
-                          },
-                        ),
-                  const SizedBox(height: 16),
-                  _departamentoSeleccionado == null
-                      ? _buildDisabledDropdown(context, 'Ciudad *', Icons.location_city_rounded, 'Selecciona un dpto. primero')
-                      : _isCargandoCiudades
-                          ? const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
-                          : _buildPremiumDropdown<Ciudad>(
-                              context: context,
-                              label: 'Ciudad *',
-                              icon: Icons.location_city_rounded,
-                              value: _ciudadSeleccionada,
-                              items: _ciudades.map((c) => 
-                                DropdownMenuItem(value: c, child: Text(c.nombre))
-                              ).toList(),
-                              onChanged: (c) {
-                                setDialogState(() => _ciudadSeleccionada = c);
+                  if (tieneDireccionRegistrada) ...[
+                    // Selector de direcciones
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  usarDireccionAlternativa = false;
+                                  _direccionController.text = usuario.direccion!;
+                                  _telefonoController.text = usuario.telefono!;
+                                });
                               },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: !usarDireccionAlternativa ? Colors.white : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: !usarDireccionAlternativa ? [
+                                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
+                                  ] : null,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text('Dirección 1', style: TextStyle(
+                                  fontWeight: !usarDireccionAlternativa ? FontWeight.bold : FontWeight.normal,
+                                  color: !usarDireccionAlternativa ? Theme.of(context).primaryColor : Colors.grey.shade600,
+                                )),
+                              ),
                             ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  usarDireccionAlternativa = true;
+                                  _direccionController.clear();
+                                  _telefonoController.clear();
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: usarDireccionAlternativa ? Colors.white : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: usarDireccionAlternativa ? [
+                                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
+                                  ] : null,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text('Dirección 2', style: TextStyle(
+                                  fontWeight: usarDireccionAlternativa ? FontWeight.bold : FontWeight.normal,
+                                  color: usarDireccionAlternativa ? Theme.of(context).primaryColor : Colors.grey.shade600,
+                                )),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  if (!tieneDireccionRegistrada || usarDireccionAlternativa) ...[
+                    _buildPremiumTextField(
+                      context: context,
+                      controller: _direccionController,
+                      label: 'Dirección de entrega *',
+                      icon: Icons.home_rounded,
+                      hint: 'Ej: Calle 123 #45-67',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildPremiumTextField(
+                      context: context,
+                      controller: _telefonoController,
+                      label: 'Teléfono de contacto *',
+                      icon: Icons.phone_android_rounded,
+                      hint: 'Tu número de celular',
+                      keyboardType: TextInputType.phone,
+                    ),
+                  ] else ...[
+                    // Tarjeta de Dirección 1 predeterminada
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.home_rounded, color: Theme.of(context).primaryColor, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  usuario!.direccion!,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.phone_android_rounded, color: Colors.grey.shade600, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                usuario.telefono!,
+                                style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  
+                  if (!tieneDireccionRegistrada || usarDireccionAlternativa) ...[
+                    const SizedBox(height: 24),
+                    _buildSectionTitle(context, 'Ubicación'),
+                    _isCargandoDepartamentos
+                        ? const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                        : _buildPremiumDropdown<Departamento>(
+                            context: context,
+                            label: 'Departamento *',
+                            icon: Icons.map_rounded,
+                            value: _departamentoSeleccionado,
+                            items: _departamentos.map((d) => 
+                              DropdownMenuItem(value: d, child: Text(d.nombre))
+                            ).toList(),
+                            onChanged: (d) async {
+                              setDialogState(() {
+                                _departamentoSeleccionado = d;
+                                _ciudadSeleccionada = null;
+                              });
+                              if (d != null && d.id != null) {
+                                await _cargarCiudades(d.id!);
+                                setDialogState(() {});
+                              }
+                            },
+                          ),
+                    const SizedBox(height: 16),
+                    _departamentoSeleccionado == null
+                        ? _buildDisabledDropdown(context, 'Ciudad *', Icons.location_city_rounded, 'Selecciona un dpto. primero')
+                        : _isCargandoCiudades
+                            ? const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                            : _buildPremiumDropdown<Ciudad>(
+                                context: context,
+                                label: 'Ciudad *',
+                                icon: Icons.location_city_rounded,
+                                value: _ciudadSeleccionada,
+                                items: _ciudades.map((c) => 
+                                  DropdownMenuItem(value: c, child: Text(c.nombre))
+                                ).toList(),
+                                onChanged: (c) {
+                                  setDialogState(() => _ciudadSeleccionada = c);
+                                },
+                              ),
+                  ] else if (usuario?.departamento != null && usuario?.ciudad != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.location_city_rounded, color: Colors.grey.shade600, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${usuario!.ciudad}, ${usuario.departamento}',
+                            style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   
                   const SizedBox(height: 24),
                   _buildSectionTitle(context, 'Detalles Adicionales'),
@@ -396,12 +544,16 @@ class _CarritoScreenState extends State<CarritoScreen> {
                     height: 56,
                     child: ElevatedButton(
                       onPressed: () {
-                        if (_validarCampos(context, metodoPago)) {
+                        if (_validarCampos(context, metodoPago, usarDireccionAlternativa)) {
                           Navigator.of(context).pop({
                             'direccion': _direccionController.text.trim(),
                             'telefono': _telefonoController.text.trim(),
-                            'ciudad': _ciudadSeleccionada!.nombre,
-                            'departamento': _departamentoSeleccionado!.nombre,
+                            'ciudad': usarDireccionAlternativa || !tieneDireccionRegistrada 
+                                ? _ciudadSeleccionada!.nombre 
+                                : (usuario?.ciudad ?? ''),
+                            'departamento': usarDireccionAlternativa || !tieneDireccionRegistrada 
+                                ? _departamentoSeleccionado!.nombre 
+                                : (usuario?.departamento ?? ''),
                             'observaciones': _observacionesController.text.trim(),
                           });
                         }
@@ -425,7 +577,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
     return result;
   }
 
-  bool _validarCampos(BuildContext context, String metodoPago) {
+  bool _validarCampos(BuildContext context, String metodoPago, bool usarDireccionAlternativa) {
     if (_direccionController.text.trim().isEmpty) {
       _showSnackBar(context, 'La dirección es obligatoria');
       return false;
@@ -434,14 +586,18 @@ class _CarritoScreenState extends State<CarritoScreen> {
       _showSnackBar(context, 'El teléfono es obligatorio');
       return false;
     }
-    if (_departamentoSeleccionado == null) {
-      _showSnackBar(context, 'Selecciona un departamento');
-      return false;
+    
+    if (usarDireccionAlternativa) {
+      if (_departamentoSeleccionado == null) {
+        _showSnackBar(context, 'Selecciona un departamento');
+        return false;
+      }
+      if (_ciudadSeleccionada == null) {
+        _showSnackBar(context, 'Selecciona una ciudad');
+        return false;
+      }
     }
-    if (_ciudadSeleccionada == null) {
-      _showSnackBar(context, 'Selecciona una ciudad');
-      return false;
-    }
+    
     if (metodoPago == 'transferencia' && _comprobanteSeleccionado == null) {
       _showSnackBar(context, 'Debes adjuntar el comprobante de transferencia');
       return false;
