@@ -10,6 +10,7 @@ import 'pedido_detalle_admin_screen.dart';
 import 'crear_pedido_admin_screen.dart';
 import '../auth/login_screen.dart';
 import '../auth/change_password_screen.dart';
+import '../cliente/categorias_screen.dart';
 import '../../utils/responsive.dart';
 
 class PedidosAdminScreen extends StatefulWidget {
@@ -71,7 +72,18 @@ class _PedidosAdminScreenState extends State<PedidosAdminScreen> {
             nombreEstado = estado.nombre;
           } catch (_) {}
         }
-        return nombreEstado == _filtroEstado;
+        
+        final name = nombreEstado.toLowerCase().trim();
+        String normalizedState = nombreEstado;
+        if (name == 'anulada' || name == 'anulado' || name == 'cancelado') {
+          normalizedState = 'Anulada';
+        } else if (name == 'pendiente') {
+          normalizedState = 'Pendiente';
+        } else if (name == 'entregado') {
+          normalizedState = 'Entregado';
+        }
+        
+        return normalizedState.toLowerCase() == _filtroEstado.toLowerCase();
       }).toList();
     }
 
@@ -143,17 +155,6 @@ class _PedidosAdminScreenState extends State<PedidosAdminScreen> {
         elevation: 0,
         centerTitle: false,
         actions: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.logout, color: Colors.black87, size: 20),
-            ),
-            onPressed: _cerrarSesion,
-          ),
           PopupMenuButton(
             icon: Container(
               padding: const EdgeInsets.all(8),
@@ -161,9 +162,28 @@ class _PedidosAdminScreenState extends State<PedidosAdminScreen> {
                 color: Colors.grey[100],
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.more_vert, color: Colors.black87, size: 20),
+              child: const Icon(Icons.menu, color: Colors.black87, size: 20),
             ),
             itemBuilder: (context) => [
+              PopupMenuItem(
+                child: const Row(
+                  children: [
+                    Icon(Icons.store, size: 20),
+                    SizedBox(width: 10),
+                    Text('Ver Catálogo'),
+                  ],
+                ),
+                onTap: () {
+                  Future.delayed(Duration.zero, () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CategoriasScreen(),
+                      ),
+                    );
+                  });
+                },
+              ),
               PopupMenuItem(
                 child: const Row(
                   children: [
@@ -180,6 +200,20 @@ class _PedidosAdminScreenState extends State<PedidosAdminScreen> {
                         builder: (_) => const ChangePasswordScreen(),
                       ),
                     );
+                  });
+                },
+              ),
+              PopupMenuItem(
+                child: const Row(
+                  children: [
+                    Icon(Icons.logout, size: 20, color: Colors.red),
+                    SizedBox(width: 10),
+                    Text('Cerrar Sesión', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+                onTap: () {
+                  Future.delayed(Duration.zero, () {
+                    _cerrarSesion();
                   });
                 },
               ),
@@ -233,30 +267,23 @@ class _PedidosAdminScreenState extends State<PedidosAdminScreen> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                   ),
                   dropdownColor: Colors.white,
-                  items: [
-                    const DropdownMenuItem(
+                  items: const [
+                    DropdownMenuItem(
                       value: 'TODOS',
                       child: Text('Todos los Estados'),
                     ),
-                    ...pedidoProvider.estados
-                        .where((e) {
-                          final name = e.nombre.toLowerCase().trim();
-                          return name == 'pendiente' || 
-                                 name == 'entregado' || 
-                                 name == 'anulada' || 
-                                 name == 'anulado' || 
-                                 name == 'cancelado';
-                        })
-                        .map((e) {
-                          String label = e.nombre;
-                          final name = e.nombre.toLowerCase().trim();
-                          if (name == 'anulada' || name == 'anulado') label = 'Cancelado';
-                          
-                          return DropdownMenuItem(
-                            value: e.nombre,
-                            child: Text(label),
-                          );
-                        }),
+                    DropdownMenuItem(
+                      value: 'Pendiente',
+                      child: Text('Pendiente'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Entregado',
+                      child: Text('Entregado'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Anulada',
+                      child: Text('Anulada'),
+                    ),
                   ],
                   onChanged: (v) {
                     if (v != null) setState(() => _filtroEstado = v);

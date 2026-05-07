@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../models/usuario_model.dart';
 import '../../models/producto_model.dart';
 import '../../models/venta_pedido_model.dart';
 import '../../models/detalle_pedido_model.dart';
+import '../../models/departamento_model.dart';
+import '../../models/ciudad_model.dart';
 import '../../services/auth_service.dart';
+import '../../services/ubicacion_service.dart';
+import '../../services/imagen_service.dart';
 import '../../services/producto_service.dart';
 import '../../providers/pedido_provider.dart';
 import '../../widgets/producto_card.dart';
@@ -34,6 +39,14 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
   bool _isLoadingClientes = true;
   bool _isLoadingProductos = true;
   bool _isCreando = false;
+  List<Departamento> _departamentos = [];
+  List<Ciudad> _ciudades = [];
+  Departamento? _departamentoSeleccionado;
+  Ciudad? _ciudadSeleccionada;
+  bool _isCargandoDepartamentos = false;
+  bool _isCargandoCiudades = false;
+  XFile? _comprobanteSeleccionado;
+
 
   @override
   void initState() {
@@ -214,7 +227,7 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
     return total;
   }
 
-  Future<void> _crearPedido() async {
+Future<void> _crearPedido() async {
     if (_clienteSeleccionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -235,25 +248,25 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
       return;
     }
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar Pedido'),
-        content: const Text('¿Estás seguro de crear este pedido?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Crear'),
-          ),
-        ],
-      ),
-    );
+    // Paso 1: Seleccionar tipo de entrega
+    final tipoEntrega = await _seleccionarTipoEntrega();
+    if (tipoEntrega == null) return;
 
-    if (confirm != true) return;
+    String? metodoPago;
+    Map<String, String>? datosEntrega;
+
+    // Paso 2: Si es envío a domicilio, seleccionar método de pago
+    if (tipoEntrega == 'domicilio') {
+      metodoPago = await _seleccionarMetodoPago();
+      if (metodoPago == null) return;
+
+      // Paso 3: Mostrar diálogo para datos de entrega
+      datosEntrega = await _mostrarDialogoDomicilio(metodoPago);
+      if (datosEntrega == null) return;
+    } else if (tipoEntrega == 'recoger') {
+      metodoPago = null;
+      datosEntrega = null;
+    }
 
     setState(() {
       _isCreando = true;
@@ -262,53 +275,57 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
     final pedidoProvider = context.read<PedidoProvider>();
 
     try {
-      // Obtener el ID del estado "Pendiente"
       final estadoPendienteId = await pedidoProvider.obtenerEstadoPendienteId();
       if (estadoPendienteId == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No se pudo obtener el estado "Pendiente". Por favor, intenta nuevamente.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          setState(() {
-            _isCreando = false;
-          });
-        }
-        return;
+        throw Exception('No se pudo obtener el estado "Pendiente". Por favor, intenta nuevamente.');
       }
 
-      // Crear pedido según el formato que espera la API
       final ahora = DateTime.now();
       final subtotal = _calcularTotal();
-      final envio = 0.0; // Para pedidos del admin, sin envío por defecto
+      final envio = tipoEntrega == 'domicilio' ? 5000.0 : 0.0;
       final total = subtotal + envio;
       
-      final pedido = VentaPedido(
+      final fechaEntregaFinal = tipoEntrega == 'domicilio' 
+          ? ahora.add(const Duration(days: 3)) 
+          : ahora;
+          
+      var pedido = VentaPedido(
         usuarioId: _clienteSeleccionado!.id,
-        estadoId: estadoPendienteId, // Pendiente
+        estadoId: estadoPendienteId,
         fechaCreacion: ahora,
-        fechaEntrega: null, // Se puede establecer después
+        fechaEntrega: fechaEntregaFinal,
         subtotal: subtotal,
         envio: envio,
         total: total,
-        direccionEntrega: _direccionController.text.trim().isNotEmpty
-            ? _direccionController.text.trim()
-            : _clienteSeleccionado!.direccion,
-        ciudadEntrega: null, // Se puede agregar después si es necesario
-        departamentoEntrega: null, // Se puede agregar después si es necesario
-        metodoPago: null, // Se puede establecer después
-        // Campos adicionales para uso interno
-        telefonoContacto: _telefonoController.text.trim().isNotEmpty
-            ? _telefonoController.text.trim()
-            : _clienteSeleccionado!.telefono,
-        observaciones: _observacionesController.text.trim().isNotEmpty
-            ? _observacionesController.text.trim()
+        direccionEntrega: tipoEntrega == 'domicilio' && datosEntrega != null
+            ? datosEntrega['direccion']
             : null,
+        ciudadEntrega: tipoEntrega == 'domicilio' && datosEntrega != null
+            ? datosEntrega['ciudad']
+            : null,
+        departamentoEntrega: tipoEntrega == 'domicilio' && datosEntrega != null
+            ? datosEntrega['departamento']
+            : null,
+        metodoPago: metodoPago,
+        tipoEntrega: tipoEntrega,
+        telefonoContacto: tipoEntrega == 'domicilio' && datosEntrega != null
+            ? datosEntrega['telefono']
+            : _clienteSeleccionado?.telefono,
+        observaciones: tipoEntrega == 'domicilio' && datosEntrega != null && datosEntrega['observaciones']!.isNotEmpty
+            ? datosEntrega['observaciones']
+            : null,
+        comprobanteUrl: null,
       );
 
-      // Crear detalles
+      if (metodoPago == 'transferencia' && _comprobanteSeleccionado != null) {
+        final urlImagen = await ImagenService.subirImagenMultipart(_comprobanteSeleccionado!.path);
+        if (urlImagen != null && urlImagen.isNotEmpty) {
+          pedido = pedido.copyWith(comprobanteUrl: urlImagen);
+        } else {
+          throw Exception('No se pudo subir el comprobante. Por favor intenta de nuevo.');
+        }
+      }
+
       final detalles = _productosAgregados.entries.map((entry) {
         final producto = _productos.firstWhere((p) => p.id == entry.key);
         return DetallePedido(
@@ -505,25 +522,7 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
                 );
               },
             ),
-          if (_clienteSeleccionado != null) ...[
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  _buildClientInfoRow(Icons.location_on_outlined, 'Dirección', _direccionController),
-                  const Divider(height: 24),
-                  _buildClientInfoRow(Icons.phone_outlined, 'Teléfono', _telefonoController),
-                  const Divider(height: 24),
-                  _buildClientInfoRow(Icons.note_alt_outlined, 'Observaciones', _observacionesController, maxLines: 2),
-                ],
-              ),
-            ),
-          ],
+
         ],
       ),
     );
@@ -585,95 +584,38 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: Responsive.gridCount(screenWidth, mobile: 2, tablet: 3, desktop: 4),
+                  crossAxisCount: Responsive.gridCount(screenWidth),
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  mainAxisExtent: 260,
+                  mainAxisExtent: screenWidth >= Responsive.desktopBreakpoint
+                      ? 380.0
+                      : (screenWidth >= Responsive.tabletBreakpoint ? 360.0 : 340.0),
                 ),
                 itemCount: _productosFiltrados.length,
                 itemBuilder: (context, index) {
                   final p = _productosFiltrados[index];
-                  final isAdded = _productosAgregados.containsKey(p.id);
-                  return _buildModernProductCard(p, isAdded);
+                  return ProductoCard(
+                    producto: p,
+                    onAddToCart: p.disponible && p.stock > 0
+                        ? (cantidad) {
+                            _agregarProducto(p, cantidad: cantidad);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('$cantidad x ${p.nombre} agregado al pedido'),
+                                backgroundColor: Colors.green,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        : null,
+                  );
                 },
               ),
       ],
     );
   }
 
-  Widget _buildModernProductCard(Producto p, bool isAdded) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: p.imagenUrl != null && p.imagenUrl!.isNotEmpty
-                    ? Image.network(p.imagenUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: Colors.grey))
-                    : const Icon(Icons.image_outlined, color: Colors.grey),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  p.nombre,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(p.precio),
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.blue[800]),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: p.disponible && p.stock > 0 ? () => _agregarProducto(p) : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isAdded ? Colors.green : Colors.black,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 0),
-                      minimumSize: const Size(0, 32),
-                    ),
-                    child: Text(
-                      isAdded ? 'AÑADIDO ✓' : 'AÑADIR',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildBottomSummary(NumberFormat currencyFormat) {
     final total = _calcularTotal();
@@ -881,6 +823,735 @@ class _CrearPedidoAdminScreenState extends State<CrearPedidoAdminScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Future<void> _cargarDepartamentos() async {
+    setState(() {
+      _isCargandoDepartamentos = true;
+    });
+
+    try {
+      final departamentos = await UbicacionService.getDepartamentos();
+      setState(() {
+        _departamentos = departamentos;
+        _isCargandoDepartamentos = false;
+      });
+    } catch (e) {
+      debugPrint('❌ Carrito: Error al cargar departamentos: $e');
+      setState(() {
+        _isCargandoDepartamentos = false;
+      });
+    }
+  }
+
+  Future<void> _cargarCiudades(int departamentoId) async {
+    setState(() {
+      _isCargandoCiudades = true;
+      _ciudadSeleccionada = null; // Limpiar ciudad seleccionada
+    });
+
+    try {
+      final ciudades = await UbicacionService.getCiudadesPorDepartamento(departamentoId);
+      setState(() {
+        _ciudades = ciudades;
+        _isCargandoCiudades = false;
+      });
+    } catch (e) {
+      debugPrint('❌ Carrito: Error al cargar ciudades: $e');
+      setState(() {
+        _isCargandoCiudades = false;
+      });
+    }
+  }
+
+  Future<String?> _seleccionarTipoEntrega() async {
+    return await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Método de Entrega',
+              style: TextStyle(
+                fontSize: Responsive.fontSize(context, 20),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '¿Cómo prefieres recibir tus productos?',
+              style: TextStyle(
+                fontSize: Responsive.fontSize(context, 14),
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _OptionTile(
+              icon: Icons.store_rounded,
+              title: 'Recoger en Punto Físico',
+              subtitle: 'Retira tu pedido en nuestra tienda',
+              color: Colors.blue,
+              onTap: () => Navigator.of(context).pop('recoger'),
+            ),
+            const SizedBox(height: 12),
+            _OptionTile(
+              icon: Icons.local_shipping_rounded,
+              title: 'Envío a Domicilio',
+              subtitle: 'Recibe tu pedido en tu dirección',
+              color: Colors.green,
+              onTap: () => Navigator.of(context).pop('domicilio'),
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _seleccionarMetodoPago() async {
+    return await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Método de Pago',
+              style: TextStyle(
+                fontSize: Responsive.fontSize(context, 20),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Selecciona cómo deseas realizar el pago',
+              style: TextStyle(
+                fontSize: Responsive.fontSize(context, 14),
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _OptionTile(
+              icon: Icons.payments_rounded,
+              title: 'Efectivo (Contraentrega)',
+              subtitle: 'Paga cuando recibas tu pedido',
+              color: Colors.green,
+              onTap: () => Navigator.of(context).pop('efectivo'),
+            ),
+            const SizedBox(height: 12),
+            _OptionTile(
+              icon: Icons.account_balance_rounded,
+              title: 'Transferencia Bancaria',
+              subtitle: 'Adjunta el comprobante vía WhatsApp',
+              color: Colors.blue,
+              onTap: () => Navigator.of(context).pop('transferencia'),
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<Map<String, String>?> _mostrarDialogoDomicilio(String metodoPago) async {
+    
+    final usuario = _clienteSeleccionado;
+    
+    bool tieneDireccionRegistrada = usuario != null && 
+                                    usuario.direccion != null && 
+                                    usuario.direccion!.isNotEmpty && 
+                                    usuario.telefono != null && 
+                                    usuario.telefono!.isNotEmpty;
+                                    
+    bool usarDireccionAlternativa = !tieneDireccionRegistrada;
+
+    _direccionController.clear();
+    _telefonoController.clear();
+    _observacionesController.clear();
+    
+    if (tieneDireccionRegistrada) {
+      _direccionController.text = usuario.direccion!;
+      _telefonoController.text = usuario.telefono!;
+    }
+    
+    _departamentoSeleccionado = null;
+    _ciudadSeleccionada = null;
+    _ciudades = [];
+    _comprobanteSeleccionado = null;
+
+    await _cargarDepartamentos();
+
+    if (!mounted) return null;
+
+    final result = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+          
+          return Container(
+            padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + keyboardHeight),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.location_on_rounded, color: Colors.green),
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Datos de Entrega',
+                        style: TextStyle(
+                          fontSize: Responsive.fontSize(context, 20),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  _buildSectionTitle(context, 'Información del Receptor'),
+                  
+                  if (tieneDireccionRegistrada) ...[
+                    // Selector de direcciones
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  usarDireccionAlternativa = false;
+                                  _direccionController.text = usuario.direccion!;
+                                  _telefonoController.text = usuario.telefono!;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: !usarDireccionAlternativa ? Colors.white : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: !usarDireccionAlternativa ? [
+                                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
+                                  ] : null,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text('Dirección 1', style: TextStyle(
+                                  fontWeight: !usarDireccionAlternativa ? FontWeight.bold : FontWeight.normal,
+                                  color: !usarDireccionAlternativa ? Theme.of(context).primaryColor : Colors.grey.shade600,
+                                )),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  usarDireccionAlternativa = true;
+                                  _direccionController.clear();
+                                  _telefonoController.clear();
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: usarDireccionAlternativa ? Colors.white : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: usarDireccionAlternativa ? [
+                                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
+                                  ] : null,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text('Dirección 2', style: TextStyle(
+                                  fontWeight: usarDireccionAlternativa ? FontWeight.bold : FontWeight.normal,
+                                  color: usarDireccionAlternativa ? Theme.of(context).primaryColor : Colors.grey.shade600,
+                                )),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  if (!tieneDireccionRegistrada || usarDireccionAlternativa) ...[
+                    _buildPremiumTextField(
+                      context: context,
+                      controller: _direccionController,
+                      label: 'Dirección de entrega *',
+                      icon: Icons.home_rounded,
+                      hint: 'Ej: Calle 123 #45-67',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildPremiumTextField(
+                      context: context,
+                      controller: _telefonoController,
+                      label: 'Teléfono de contacto *',
+                      icon: Icons.phone_android_rounded,
+                      hint: 'Tu número de celular',
+                      keyboardType: TextInputType.phone,
+                    ),
+                  ] else ...[
+                    // Tarjeta de Dirección 1 predeterminada
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.home_rounded, color: Theme.of(context).primaryColor, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  usuario!.direccion!,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.phone_android_rounded, color: Colors.grey.shade600, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                usuario.telefono!,
+                                style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  
+                  if (!tieneDireccionRegistrada || usarDireccionAlternativa) ...[
+                    const SizedBox(height: 24),
+                    _buildSectionTitle(context, 'Ubicación'),
+                    _isCargandoDepartamentos
+                        ? const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                        : _buildPremiumDropdown<Departamento>(
+                            context: context,
+                            label: 'Departamento *',
+                            icon: Icons.map_rounded,
+                            value: _departamentoSeleccionado,
+                            items: _departamentos.map((d) => 
+                              DropdownMenuItem(value: d, child: Text(d.nombre))
+                            ).toList(),
+                            onChanged: (d) async {
+                              setDialogState(() {
+                                _departamentoSeleccionado = d;
+                                _ciudadSeleccionada = null;
+                              });
+                              if (d != null && d.id != null) {
+                                await _cargarCiudades(d.id!);
+                                setDialogState(() {});
+                              }
+                            },
+                          ),
+                    const SizedBox(height: 16),
+                    _departamentoSeleccionado == null
+                        ? _buildDisabledDropdown(context, 'Ciudad *', Icons.location_city_rounded, 'Selecciona un dpto. primero')
+                        : _isCargandoCiudades
+                            ? const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                            : _buildPremiumDropdown<Ciudad>(
+                                context: context,
+                                label: 'Ciudad *',
+                                icon: Icons.location_city_rounded,
+                                value: _ciudadSeleccionada,
+                                items: _ciudades.map((c) => 
+                                  DropdownMenuItem(value: c, child: Text(c.nombre))
+                                ).toList(),
+                                onChanged: (c) {
+                                  setDialogState(() => _ciudadSeleccionada = c);
+                                },
+                              ),
+                  ] else if (usuario?.departamento != null && usuario?.ciudad != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.location_city_rounded, color: Colors.grey.shade600, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${usuario!.ciudad}, ${usuario.departamento}',
+                            style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  
+                  const SizedBox(height: 24),
+                  _buildSectionTitle(context, 'Detalles Adicionales'),
+                  _buildPremiumTextField(
+                    context: context,
+                    controller: _observacionesController,
+                    label: 'Observaciones (opcional)',
+                    icon: Icons.notes_rounded,
+                    hint: 'Indicaciones para el repartidor...',
+                    maxLines: 2,
+                  ),
+                  
+                  if (metodoPago == 'transferencia') ...[
+                    const SizedBox(height: 24),
+                    _buildTransferenciaInfo(context),
+                  ],
+                  
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (_validarCampos(context, metodoPago, usarDireccionAlternativa)) {
+                          Navigator.of(context).pop({
+                            'direccion': _direccionController.text.trim(),
+                            'telefono': _telefonoController.text.trim(),
+                            'ciudad': usarDireccionAlternativa || !tieneDireccionRegistrada 
+                                ? _ciudadSeleccionada!.nombre 
+                                : (usuario?.ciudad ?? ''),
+                            'departamento': usarDireccionAlternativa || !tieneDireccionRegistrada 
+                                ? _departamentoSeleccionado!.nombre 
+                                : (usuario?.departamento ?? ''),
+                            'observaciones': _observacionesController.text.trim(),
+                          });
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                      ),
+                      child: const Text('Confirmar Pedido', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    return result;
+  }
+
+  bool _validarCampos(BuildContext context, String metodoPago, bool usarDireccionAlternativa) {
+    if (_direccionController.text.trim().isEmpty) {
+      _showSnackBar(context, 'La dirección es obligatoria');
+      return false;
+    }
+    if (_telefonoController.text.trim().isEmpty) {
+      _showSnackBar(context, 'El teléfono es obligatorio');
+      return false;
+    }
+    
+    if (usarDireccionAlternativa) {
+      if (_departamentoSeleccionado == null) {
+        _showSnackBar(context, 'Selecciona un departamento');
+        return false;
+      }
+      if (_ciudadSeleccionada == null) {
+        _showSnackBar(context, 'Selecciona una ciudad');
+        return false;
+      }
+    }
+    
+    if (metodoPago == 'transferencia' && _comprobanteSeleccionado == null) {
+      _showSnackBar(context, 'Debes adjuntar el comprobante de transferencia');
+      return false;
+    }
+    return true;
+  }
+
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.orange),
+    );
+  }
+
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey.shade500,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPremiumTextField({
+    required BuildContext context,
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? hint,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, color: Theme.of(context).primaryColor),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Theme.of(context).primaryColor.withOpacity(0.5)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPremiumDropdown<T>({
+    required BuildContext context,
+    required String label,
+    required IconData icon,
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return DropdownButtonFormField<T>(
+      value: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Theme.of(context).primaryColor),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
+      ),
+      items: items,
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _buildDisabledDropdown(BuildContext context, String label, IconData icon, String hint) {
+    return DropdownButtonFormField<String>(
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Colors.grey),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade100)),
+      ),
+      items: const [],
+      onChanged: null,
+      hint: Text(hint, style: const TextStyle(fontSize: 14)),
+    );
+  }
+
+  Widget _buildTransferenciaInfo(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: Colors.blue.shade700),
+              const SizedBox(width: 12),
+              const Text('Pago por Transferencia', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Por favor, adjunta el comprobante de tu transferencia para poder procesar tu pedido.',
+            style: TextStyle(fontSize: 13, color: Colors.blue.shade900),
+          ),
+          const SizedBox(height: 16),
+          if (_comprobanteSeleccionado != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.image, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _comprobanteSeleccionado!.name,
+                      style: const TextStyle(fontSize: 13),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.red, size: 20),
+                    onPressed: () {
+                      if (context.mounted) {
+                        (context as Element).markNeedsBuild();
+                      }
+                      _comprobanteSeleccionado = null;
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final imagen = await ImagenService.seleccionarImagen();
+                if (imagen != null) {
+                  if (context.mounted) {
+                    (context as Element).markNeedsBuild();
+                  }
+                  _comprobanteSeleccionado = imagen;
+                }
+              },
+              icon: Icon(_comprobanteSeleccionado == null ? Icons.upload_file : Icons.edit, color: Colors.white, size: 20),
+              label: Text(_comprobanteSeleccionado == null ? 'Seleccionar Comprobante' : 'Cambiar Imagen', style: const TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade700,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+}
+
+class _OptionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _OptionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.1)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 28),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: onTap,
       ),
     );
   }

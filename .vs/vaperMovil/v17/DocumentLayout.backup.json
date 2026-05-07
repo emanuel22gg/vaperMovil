@@ -3,16 +3,16 @@
   "WorkspaceRootPath": "C:\\Users\\USER\\source\\repos\\vaperMovil\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\USER\\source\\repos\\vaperMovil\\lib\\providers\\pedido_provider.dart||{8B382828-6202-11D1-8870-0000F87579D2}|",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\providers\\pedido_provider.dart||{8B382828-6202-11D1-8870-0000F87579D2}|"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\USER\\source\\repos\\vaperMovil\\lib\\screens\\auth\\login_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}|",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\screens\\auth\\login_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}|"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\USER\\source\\repos\\vaperMovil\\lib\\widgets\\pedido_card.dart||{8B382828-6202-11D1-8870-0000F87579D2}|",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\widgets\\pedido_card.dart||{8B382828-6202-11D1-8870-0000F87579D2}|"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\USER\\source\\repos\\vaperMovil\\lib\\providers\\pedido_provider.dart||{8B382828-6202-11D1-8870-0000F87579D2}|",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\providers\\pedido_provider.dart||{8B382828-6202-11D1-8870-0000F87579D2}|"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\USER\\source\\repos\\vaperMovil\\lib\\models\\detalle_pedido_model.dart||{8B382828-6202-11D1-8870-0000F87579D2}",
@@ -65,8 +65,8 @@
       "VerticalTabListWidth": 256,
       "DocumentGroups": [
         {
-          "DockedHeight": 93,
-          "SelectedChildIndex": 2,
+          "DockedHeight": 294,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Bookmark",
@@ -82,12 +82,11 @@
               "RelativeToolTip": "lib\\screens\\admin\\pedidos_admin_screen.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAPEAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-02-06T16:39:05.936Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-02-06T16:39:05.936Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "login_screen.dart",
               "DocumentMoniker": "C:\\Users\\USER\\source\\repos\\vaperMovil\\lib\\screens\\auth\\login_screen.dart",
               "RelativeDocumentMoniker": "lib\\screens\\auth\\login_screen.dart",
@@ -108,8 +107,7 @@
               "RelativeToolTip": "lib\\models\\venta_pedido_model.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAAXAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-02-06T15:51:11.724Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-02-06T15:51:11.724Z"
             },
             {
               "$type": "Document",
@@ -121,25 +119,24 @@
               "RelativeToolTip": "lib\\models\\detalle_pedido_model.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAA8AAAAMAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-02-06T15:57:49.222Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-02-06T15:57:49.222Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 0,
               "Title": "pedido_provider.dart",
               "DocumentMoniker": "C:\\Users\\USER\\source\\repos\\vaperMovil\\lib\\providers\\pedido_provider.dart",
               "RelativeDocumentMoniker": "lib\\providers\\pedido_provider.dart",
               "ToolTip": "C:\\Users\\USER\\source\\repos\\vaperMovil\\lib\\providers\\pedido_provider.dart",
               "RelativeToolTip": "lib\\providers\\pedido_provider.dart",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAANwAAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAJoAAAAAAAAAAAAswKcAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
               "WhenOpened": "2026-01-09T22:16:33.02Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "pedido_card.dart",
               "DocumentMoniker": "C:\\Users\\USER\\source\\repos\\vaperMovil\\lib\\widgets\\pedido_card.dart",
               "RelativeDocumentMoniker": "lib\\widgets\\pedido_card.dart",
@@ -147,8 +144,7 @@
               "RelativeToolTip": "lib\\widgets\\pedido_card.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAIcBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-01-08T20:33:29.211Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-08T20:33:29.211Z"
             },
             {
               "$type": "Document",
@@ -160,8 +156,7 @@
               "RelativeToolTip": "pubspec.yaml",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003775|",
-              "WhenOpened": "2026-01-08T19:33:17.503Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-08T19:33:17.503Z"
             },
             {
               "$type": "Document",
@@ -173,8 +168,7 @@
               "RelativeToolTip": "lib\\main.dart",
               "ViewState": "AgIAAFMAAAAAAAAAAAAcwGgAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-01-08T20:31:46.883Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-08T20:31:46.883Z"
             },
             {
               "$type": "Document",
@@ -186,8 +180,7 @@
               "RelativeToolTip": "lib\\screens\\cliente\\categorias_screen.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-02-06T16:40:19.208Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-02-06T16:40:19.208Z"
             },
             {
               "$type": "Document",
@@ -199,8 +192,7 @@
               "RelativeToolTip": "lib\\widgets\\categoria_card.dart",
               "ViewState": "AgIAAHEAAAAAAAAAAAAewAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-01-08T20:32:33.829Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-08T20:32:33.829Z"
             },
             {
               "$type": "Document",
@@ -212,8 +204,7 @@
               "RelativeToolTip": "lib\\screens\\admin\\crear_pedido_admin_screen.dart",
               "ViewState": "AgIAAAUCAAAAAAAAAAAQwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-01-08T21:55:22.775Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-08T21:55:22.775Z"
             },
             {
               "$type": "Document",
@@ -225,8 +216,7 @@
               "RelativeToolTip": "lib\\screens\\cliente\\carrito_screen.dart",
               "ViewState": "AgIAAC4DAAAAAAAAAAAewAgAAAAuAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-01-08T20:40:27.928Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-08T20:40:27.928Z"
             },
             {
               "$type": "Document",
@@ -238,8 +228,7 @@
               "RelativeToolTip": "lib\\screens\\cliente\\productos_screen.dart",
               "ViewState": "AgIAABoBAAAAAAAAAAAewAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-01-08T21:02:30.303Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-08T21:02:30.303Z"
             },
             {
               "$type": "Document",
@@ -251,13 +240,12 @@
               "RelativeToolTip": "lib\\utils\\responsive.dart",
               "ViewState": "AgIAADkAAAAAAAAAAAAtwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-01-08T20:18:49.863Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-08T20:18:49.863Z"
             }
           ]
         },
         {
-          "DockedHeight": 307,
+          "DockedHeight": 106,
           "SelectedChildIndex": -1,
           "Children": [
             {

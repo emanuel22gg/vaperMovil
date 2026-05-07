@@ -172,6 +172,7 @@ class _CategoriasScreenState extends State<CategoriasScreen> {
             onPressed: _navegarACarrito,
           ),
           PopupMenuButton(
+            icon: const Icon(Icons.menu),
             itemBuilder: (context) => [
               PopupMenuItem(
                 child: const Row(children: [Icon(Icons.person), SizedBox(width: 8), Text('Mi Perfil')]),

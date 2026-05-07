@@ -124,23 +124,41 @@ class PedidoCard extends StatelessWidget {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.flag),
                         ),
-                        items: provider.estados.where((estado) {
-                          final name = estado.nombre.toLowerCase().trim();
-                          return name == 'pendiente' || 
-                                 name == 'entregado' || 
-                                 name == 'anulada' || 
-                                 name == 'anulado' || 
-                                 name == 'cancelado';
-                        }).map((estado) {
-                          String label = estado.nombre;
-                          final name = estado.nombre.toLowerCase().trim();
-                          if (name == 'anulada' || name == 'anulado') label = 'Cancelado';
+                        items: (() {
+                          final labelsVistos = <String>{};
+                          final list = provider.estados.toList();
+                          if (estadoSeleccionado != null) {
+                            list.remove(estadoSeleccionado);
+                            list.insert(0, estadoSeleccionado!);
+                          }
                           
-                          return DropdownMenuItem<Estado>(
-                            value: estado,
-                            child: Text(label),
-                          );
-                        }).toList(),
+                          return list.where((estado) {
+                            final name = estado.nombre.toLowerCase().trim();
+                            return name == 'pendiente' || 
+                                   name == 'entregado' || 
+                                   name == 'anulada' || 
+                                   name == 'anulado' || 
+                                   name == 'cancelado' ||
+                                   estado.id == estadoSeleccionado?.id;
+                          }).where((estado) {
+                            String label = estado.nombre;
+                            final name = estado.nombre.toLowerCase().trim();
+                            if (name == 'anulada' || name == 'anulado' || name == 'cancelado') label = 'Anulada';
+                            
+                            if (labelsVistos.contains(label)) return false;
+                            labelsVistos.add(label);
+                            return true;
+                          }).map((estado) {
+                            String label = estado.nombre;
+                            final name = estado.nombre.toLowerCase().trim();
+                            if (name == 'anulada' || name == 'anulado' || name == 'cancelado') label = 'Anulada';
+                            
+                            return DropdownMenuItem<Estado>(
+                              value: estado,
+                              child: Text(label),
+                            );
+                          }).toList();
+                        })(),
                         onChanged: (estado) {
                           setDialogState(() {
                             estadoSeleccionado = estado;

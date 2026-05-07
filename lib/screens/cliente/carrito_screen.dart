@@ -787,6 +787,202 @@ class _CarritoScreenState extends State<CarritoScreen> {
     );
   }
 
+  /// Muestra el modal de garantía/devoluciones antes de continuar con el pedido.
+  /// Retorna true si el usuario acepta y quiere continuar, false si cancela.
+  Future<bool> _mostrarModalGarantia() async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          24,
+          24,
+          24 + MediaQuery.of(context).padding.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Título
+            const Text(
+              'Garantía / Devoluciones',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Información sobre el plazo máximo para devoluciones de este pedido.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Tarjeta de garantía
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 2),
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.info_outline_rounded,
+                      color: Colors.blue.shade700,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Plazo de garantía',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.blue.shade800,
+                              height: 1.4,
+                            ),
+                            children: const [
+                              TextSpan(text: 'Hay plazo de '),
+                              TextSpan(
+                                text: 'un mes (30 días)',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              TextSpan(
+                                text: ' para hacer la devolución de los productos de este pedido.',
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Esta política aplica de manera global para todos los artículos.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // Botones
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      side: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    child: const Text(
+                      'Cancelar',
+                      style: TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Continuar',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        SizedBox(width: 6),
+                        Icon(Icons.arrow_forward_rounded, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    return result ?? false;
+  }
+
   Future<void> _enviarPedido() async {
     debugPrint('🚀🚀🚀 CARrito: MÉTODO _enviarPedido EJECUTADO 🚀🚀🚀');
     debugPrint('🚀 Carrito: Iniciando proceso de envío de pedido...');
@@ -819,7 +1015,15 @@ class _CarritoScreenState extends State<CarritoScreen> {
       return;
     }
 
-    // Paso 1: Seleccionar tipo de entrega
+    // Paso 1: Mostrar modal de garantía/devoluciones
+    debugPrint('🔵 Carrito: Mostrando modal de garantía...');
+    final aceptoGarantia = await _mostrarModalGarantia();
+    if (!aceptoGarantia) {
+      debugPrint('⚠️ Carrito: Usuario canceló en el modal de garantía');
+      return;
+    }
+
+    // Paso 2: Seleccionar tipo de entrega
     debugPrint('🔵 Carrito: Mostrando diálogo de tipo de entrega...');
     final tipoEntrega = await _seleccionarTipoEntrega();
     debugPrint('🔵 Carrito: Tipo de entrega seleccionado: $tipoEntrega');
@@ -831,7 +1035,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
     String? metodoPago;
     Map<String, String>? datosEntrega;
 
-    // Paso 2: Si es envío a domicilio, seleccionar método de pago
+    // Paso 3: Si es envío a domicilio, seleccionar método de pago
     if (tipoEntrega == 'domicilio') {
       debugPrint('🔵 Carrito: Mostrando diálogo de método de pago...');
       metodoPago = await _seleccionarMetodoPago();
@@ -841,7 +1045,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
         return;
       }
 
-      // Paso 3: Mostrar diálogo para datos de entrega
+      // Paso 4: Mostrar diálogo para datos de entrega
       debugPrint('🔵 Carrito: Mostrando diálogo de datos de entrega...');
       datosEntrega = await _mostrarDialogoDomicilio(metodoPago);
       debugPrint('🔵 Carrito: Datos de entrega: $datosEntrega');
@@ -850,9 +1054,14 @@ class _CarritoScreenState extends State<CarritoScreen> {
         return;
       }
     } else if (tipoEntrega == 'recoger') {
-      // Para recoger en punto físico, no necesitamos método de pago ni datos de entrega
+      // Para recoger en punto físico, pedimos método de pago pero no datos de entrega
       debugPrint('🔵 Carrito: Tipo de entrega: Recoger en punto físico');
-      metodoPago = null;
+      metodoPago = await _seleccionarMetodoPago();
+      debugPrint('🔵 Carrito: Método de pago seleccionado: $metodoPago');
+      if (metodoPago == null) {
+        debugPrint('⚠️ Carrito: Usuario canceló selección de método de pago');
+        return;
+      }
       datosEntrega = null;
     }
 

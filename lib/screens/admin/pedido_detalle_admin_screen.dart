@@ -158,23 +158,41 @@ class _PedidoDetalleAdminScreenState
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.flag),
                         ),
-                        items: provider.estados.where((estado) {
-                          final name = estado.nombre.toLowerCase().trim();
-                          return name == 'pendiente' || 
-                                 name == 'entregado' || 
-                                 name == 'anulada' || 
-                                 name == 'anulado' || 
-                                 name == 'cancelado';
-                        }).map((estado) {
-                          String label = estado.nombre;
-                          final name = estado.nombre.toLowerCase().trim();
-                          if (name == 'anulada' || name == 'anulado') label = 'Cancelado';
+                        items: (() {
+                          final labelsVistos = <String>{};
+                          final list = provider.estados.toList();
+                          if (estadoSeleccionado != null) {
+                            list.remove(estadoSeleccionado);
+                            list.insert(0, estadoSeleccionado!);
+                          }
                           
-                          return DropdownMenuItem<Estado>(
-                            value: estado,
-                            child: Text(label),
-                          );
-                        }).toList(),
+                          return list.where((estado) {
+                            final name = estado.nombre.toLowerCase().trim();
+                            return name == 'pendiente' || 
+                                   name == 'entregado' || 
+                                   name == 'anulada' || 
+                                   name == 'anulado' || 
+                                   name == 'cancelado' ||
+                                   estado.id == estadoSeleccionado?.id;
+                          }).where((estado) {
+                            String label = estado.nombre;
+                            final name = estado.nombre.toLowerCase().trim();
+                            if (name == 'anulada' || name == 'anulado' || name == 'cancelado') label = 'Anulada';
+                            
+                            if (labelsVistos.contains(label)) return false;
+                            labelsVistos.add(label);
+                            return true;
+                          }).map((estado) {
+                            String label = estado.nombre;
+                            final name = estado.nombre.toLowerCase().trim();
+                            if (name == 'anulada' || name == 'anulado' || name == 'cancelado') label = 'Anulada';
+                            
+                            return DropdownMenuItem<Estado>(
+                              value: estado,
+                              child: Text(label),
+                            );
+                          }).toList();
+                        })(),
                         onChanged: (estado) {
                           setDialogState(() {
                             estadoSeleccionado = estado;
@@ -254,55 +272,6 @@ class _PedidoDetalleAdminScreenState
     }
   }
 
-  Future<void> _eliminarPedido() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar Pedido'),
-        content: const Text(
-          '¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.',
-        ),
-        actions: [
-          TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true && mounted) {
-      final pedidoProvider = context.read<PedidoProvider>();
-      final success = await pedidoProvider.eliminarPedido(widget.pedidoId);
-
-      if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Pedido eliminado correctamente'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.of(context).pop();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                pedidoProvider.error ?? 'Error al eliminar pedido',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final pedidoProvider = context.watch<PedidoProvider>();
@@ -323,13 +292,6 @@ class _PedidoDetalleAdminScreenState
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-            onPressed: _eliminarPedido,
-            tooltip: 'Eliminar pedido',
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.black))

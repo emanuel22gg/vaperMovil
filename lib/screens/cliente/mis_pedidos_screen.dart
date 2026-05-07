@@ -157,6 +157,70 @@ class _PedidoDetalleClienteScreenState
     });
   }
 
+  Future<void> _anularPedido(VentaPedido pedido, PedidoProvider provider) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Anular Pedido'),
+        content: const Text('¿Estás seguro de que deseas anular este pedido? Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Anular Pedido'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      // Find the "Anulada" or "Cancelado" state id
+      final estadoCancelado = provider.estados.firstWhere(
+        (e) {
+          final name = e.nombre.toLowerCase().trim();
+          return name == 'anulada' || name == 'cancelado' || name == 'anulado';
+        },
+        orElse: () => Estado(id: null, nombre: ''),
+      );
+
+      if (estadoCancelado.id == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error: No se encontró el estado de anulación.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final success = await provider.actualizarEstado(pedido.id!, estadoCancelado.id!);
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Pedido anulado correctamente'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(provider.error ?? 'Error al anular el pedido'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final pedidoProvider = context.watch<PedidoProvider>();
@@ -362,6 +426,34 @@ class _PedidoDetalleClienteScreenState
                         ),
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    Builder(
+                      builder: (context) {
+                        final nombreEstado = _obtenerNombreEstado(pedido, pedidoProvider);
+                        if (nombreEstado.toLowerCase().trim() == 'pendiente') {
+                          return SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _anularPedido(pedido, pedidoProvider),
+                              icon: const Icon(Icons.cancel_outlined),
+                              label: const Text('ANULAR PEDIDO'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red[50],
+                                foregroundColor: Colors.red[700],
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(color: Colors.red[200]!),
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
