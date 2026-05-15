@@ -18,6 +18,8 @@ class MisPedidosScreen extends StatefulWidget {
 }
 
 class _MisPedidosScreenState extends State<MisPedidosScreen> {
+  String _filtroEstado = 'TODOS';
+
   @override
   void initState() {
     super.initState();
@@ -31,23 +33,45 @@ class _MisPedidosScreenState extends State<MisPedidosScreen> {
     final pedidoProvider = context.read<PedidoProvider>();
 
     if (authProvider.currentUser?.id != null) {
-      // Cargamos secuencialmente para evitar errores de conexión simultánea
-      // Pasamos el usuario actual para evitar que PedidoProvider intente descargarlo de nuevo
       await pedidoProvider.cargarPedidos(
         usuarioId: authProvider.currentUser!.id,
         currentUser: authProvider.currentUser,
       );
-      
-      // Pequeña pausa para no saturar al servidor
       await Future.delayed(const Duration(milliseconds: 600));
-      
       await pedidoProvider.cargarEstados();
     }
   }
 
+  List<VentaPedido> _getPedidosFiltrados(List<VentaPedido> pedidos, PedidoProvider pedidoProvider) {
+    if (_filtroEstado == 'TODOS') return pedidos;
+
+    return pedidos.where((p) {
+      String nombreEstado = '';
+      if (p.estado?.nombre != null) {
+        nombreEstado = p.estado!.nombre;
+      } else if (p.estadoId != null) {
+        try {
+          final estado = pedidoProvider.estados.firstWhere((e) => e.id == p.estadoId);
+          nombreEstado = estado.nombre;
+        } catch (_) {}
+      }
+
+      final name = nombreEstado.toLowerCase().trim();
+      String normalizedState = nombreEstado;
+      if (name == 'anulada' || name == 'anulado' || name == 'cancelado') {
+        normalizedState = 'Anulada';
+      } else if (name == 'pendiente') {
+        normalizedState = 'Pendiente';
+      } else if (name == 'entregado') {
+        normalizedState = 'Entregado';
+      }
+
+      return normalizedState.toLowerCase() == _filtroEstado.toLowerCase();
+    }).toList();
+  }
+
   void _verDetalle(int pedidoId) {
     if (pedidoId <= 0) return;
-    
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PedidoDetalleClienteScreen(pedidoId: pedidoId),
@@ -59,7 +83,8 @@ class _MisPedidosScreenState extends State<MisPedidosScreen> {
   Widget build(BuildContext context) {
     final pedidoProvider = context.watch<PedidoProvider>();
     final width = MediaQuery.of(context).size.width;
-    final padding = EdgeInsets.all(Responsive.pagePadding(width));
+    final paddingValue = Responsive.pagePadding(width);
+    final pedidosFiltrados = _getPedidosFiltrados(pedidoProvider.pedidos.toList(), pedidoProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -87,43 +112,100 @@ class _MisPedidosScreenState extends State<MisPedidosScreen> {
                     ],
                   ),
                 )
-              : RefreshIndicator(
-                  onRefresh: _cargarPedidos,
-                  child: pedidoProvider.pedidos.isEmpty
-                      ? const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.shopping_bag_outlined,
-                                size: 64,
-                                color: Colors.grey,
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                'No tienes pedidos aún',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
+              : Column(
+                  children: [
+                    // Filtro por estado
+                    Container(
+                      color: Colors.white,
+                      padding: EdgeInsets.fromLTRB(paddingValue, 12, paddingValue, 12),
+                      child: DropdownButtonFormField<String>(
+                        value: _filtroEstado,
+                        decoration: InputDecoration(
+                          labelText: 'Filtrar por Estado',
+                          labelStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
                           ),
-                        )
-                      : ListView.builder(
-                          padding: padding,
-                          itemCount: pedidoProvider.pedidos.length,
-                          itemBuilder: (context, index) {
-                            final pedido = pedidoProvider.pedidos[index];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: PedidoCard(
-                                pedido: pedido,
-                                onTap: () => _verDetalle(pedido.id!),
-                              ),
-                            );
-                          },
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                         ),
+                        dropdownColor: Colors.white,
+                        items: const [
+                          DropdownMenuItem(value: 'TODOS', child: Text('Todos los Estados')),
+                          DropdownMenuItem(value: 'Pendiente', child: Text('Pendiente')),
+                          DropdownMenuItem(value: 'Entregado', child: Text('Entregado')),
+                          DropdownMenuItem(value: 'Anulada', child: Text('Anulada')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) setState(() => _filtroEstado = v);
+                        },
+                      ),
+                    ),
+                    // Contador de pedidos
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: paddingValue, vertical: 8),
+                      child: Row(
+                        children: [
+                          Text(
+                            '${pedidosFiltrados.length} pedidos encontrados',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Lista de pedidos
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: _cargarPedidos,
+                        child: pedidosFiltrados.isEmpty
+                            ? SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                child: SizedBox(
+                                  height: MediaQuery.of(context).size.height * 0.5,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.shopping_bag_outlined, size: 64, color: Colors.grey[300]),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          _filtroEstado == 'TODOS'
+                                              ? 'No tienes pedidos aún'
+                                              : 'No hay pedidos con estado "$_filtroEstado"',
+                                          style: TextStyle(fontSize: 16, color: Colors.grey[500]),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: paddingValue,
+                                  vertical: 8,
+                                ),
+                                itemCount: pedidosFiltrados.length,
+                                itemBuilder: (context, index) {
+                                  final pedido = pedidosFiltrados[index];
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: PedidoCard(
+                                      pedido: pedido,
+                                      onTap: () => _verDetalle(pedido.id!),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
     );
   }

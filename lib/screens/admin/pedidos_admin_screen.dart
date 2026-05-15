@@ -11,6 +11,7 @@ import 'crear_pedido_admin_screen.dart';
 import '../auth/login_screen.dart';
 import '../auth/change_password_screen.dart';
 import '../cliente/categorias_screen.dart';
+import '../cliente/perfil_screen.dart';
 import '../../utils/responsive.dart';
 
 class PedidosAdminScreen extends StatefulWidget {
@@ -165,6 +166,25 @@ class _PedidosAdminScreenState extends State<PedidosAdminScreen> {
               child: const Icon(Icons.menu, color: Colors.black87, size: 20),
             ),
             itemBuilder: (context) => [
+              PopupMenuItem(
+                child: const Row(
+                  children: [
+                    Icon(Icons.person, size: 20),
+                    SizedBox(width: 10),
+                    Text('Mi Perfil'),
+                  ],
+                ),
+                onTap: () {
+                  Future.delayed(Duration.zero, () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PerfilScreen(),
+                      ),
+                    );
+                  });
+                },
+              ),
               PopupMenuItem(
                 child: const Row(
                   children: [

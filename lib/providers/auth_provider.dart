@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/usuario_model.dart';
 import '../services/auth_service.dart';
@@ -21,7 +22,8 @@ class AuthProvider extends ChangeNotifier {
   Future<void> init() async {
     try {
       _isLoading = true;
-      notifyListeners();
+      // Usar microtask para evitar notifyListeners durante el build
+      WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
 
       final userIdStr = await _storage.read(key: 'user_id');
       if (userIdStr != null) {

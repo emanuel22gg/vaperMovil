@@ -280,6 +280,25 @@ class PedidoService {
     }
   }
 
+  /// Notificar cambio de estado al cliente por correo
+  static Future<void> notificarEstado(int pedidoId) async {
+    try {
+      debugPrint('📧 PedidoService: Notificando cambio de estado para pedido $pedidoId');
+      final response = await ApiService.post(
+        '${ApiConfig.pedidosEndpoint}/$pedidoId/NotificarEstado',
+        {},
+      );
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        debugPrint('✅ PedidoService: Correo de notificación enviado correctamente');
+      } else {
+        debugPrint('⚠️ PedidoService: No se pudo enviar el correo (${response.statusCode}): ${response.body}');
+      }
+    } catch (e) {
+      // No lanzamos excepción para no interrumpir el flujo principal
+      debugPrint('⚠️ PedidoService: Error al enviar notificación de correo: $e');
+    }
+  }
+
   /// Obtener todos los estados
   static Future<List<Estado>> getEstados() async {
     try {

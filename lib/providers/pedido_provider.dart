@@ -163,6 +163,9 @@ class PedidoProvider extends ChangeNotifier {
       
       // Actualizar la lista local con el resultado
       _pedidos[pedidoIndex] = resultado;
+
+      // Notificar al cliente por correo sobre el cambio de estado
+      await PedidoService.notificarEstado(pedidoId);
       
       return true;
     } catch (e) {
