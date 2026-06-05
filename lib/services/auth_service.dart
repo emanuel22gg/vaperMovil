@@ -5,6 +5,29 @@ import 'api_service.dart';
 
 /// Servicio de autenticación
 class AuthService {
+  static Map<int, String>? _rolesCache;
+
+  /// Obtener todos los roles como un mapa id -> nombre
+  static Future<Map<int, String>> getRolesMap() async {
+    if (_rolesCache != null) return _rolesCache!;
+    try {
+      final response = await ApiService.get(ApiConfig.rolesEndpoint);
+      if (response.statusCode == 200) {
+        final List<dynamic> rolesJson = jsonDecode(response.body);
+        _rolesCache = {};
+        for (var r in rolesJson) {
+          if (r['id'] != null && r['nombreRol'] != null) {
+            _rolesCache![r['id'] as int] = r['nombreRol'] as String;
+          }
+        }
+        return _rolesCache!;
+      }
+    } catch (e) {
+      // Ignorar error al cargar roles
+    }
+    return {};
+  }
+
   /// Login de usuario
   static Future<Usuario> login(String email, String password) async {
     try {
@@ -12,10 +35,16 @@ class AuthService {
       final response = await ApiService.get(ApiConfig.usuariosEndpoint);
 
       if (response.statusCode == 200) {
+        final rolesMap = await getRolesMap();
         final List<dynamic> usuariosJson = jsonDecode(response.body);
-        final usuarios = usuariosJson
-            .map((json) => Usuario.fromJson(json as Map<String, dynamic>))
-            .toList();
+        final usuarios = usuariosJson.map((json) {
+          final Map<String, dynamic> j = json as Map<String, dynamic>;
+          final rolId = j['rolId'] as int?;
+          if (rolId != null && rolesMap.containsKey(rolId)) {
+            j['rol'] = rolesMap[rolId];
+          }
+          return Usuario.fromJson(j);
+        }).toList();
 
         // Buscar usuario por email y contraseña EXACTAMENTE como vienen de la API.
         //
@@ -94,8 +123,13 @@ class AuthService {
       final response = await ApiService.get('${ApiConfig.usuariosEndpoint}/$id');
 
       if (response.statusCode == 200) {
-        final usuarioJson = jsonDecode(response.body);
-        return Usuario.fromJson(usuarioJson as Map<String, dynamic>);
+        final rolesMap = await getRolesMap();
+        final usuarioJson = jsonDecode(response.body) as Map<String, dynamic>;
+        final rolId = usuarioJson['rolId'] as int?;
+        if (rolId != null && rolesMap.containsKey(rolId)) {
+          usuarioJson['rol'] = rolesMap[rolId];
+        }
+        return Usuario.fromJson(usuarioJson);
       } else {
         throw Exception(ApiService.handleError(response));
       }
@@ -110,10 +144,16 @@ class AuthService {
       final response = await ApiService.get(ApiConfig.usuariosEndpoint);
 
       if (response.statusCode == 200) {
+        final rolesMap = await getRolesMap();
         final List<dynamic> usuariosJson = jsonDecode(response.body);
-        return usuariosJson
-            .map((json) => Usuario.fromJson(json as Map<String, dynamic>))
-            .toList();
+        return usuariosJson.map((json) {
+          final Map<String, dynamic> j = json as Map<String, dynamic>;
+          final rolId = j['rolId'] as int?;
+          if (rolId != null && rolesMap.containsKey(rolId)) {
+            j['rol'] = rolesMap[rolId];
+          }
+          return Usuario.fromJson(j);
+        }).toList();
       } else {
         throw Exception(ApiService.handleError(response));
       }

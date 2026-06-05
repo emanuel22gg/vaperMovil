@@ -58,6 +58,8 @@ class Usuario {
       // Mapear rolId a texto
       if (rolId == 2) {
         rolTexto = 'Admin';
+      } else if (rolId == 3) {
+        rolTexto = 'Empleado';
       } else {
         // Por defecto todos los demás son Cliente
         rolTexto = 'Cliente';

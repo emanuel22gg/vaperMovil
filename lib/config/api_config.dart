@@ -4,6 +4,7 @@ class ApiConfig {
 
   // Endpoints de Usuarios/Auth
   static const String usuariosEndpoint = '/api/Usuarios';
+  static const String rolesEndpoint = '/api/Roles';
 
   // Endpoints de Categorías
   static const String categoriasEndpoint = '/api/CategoriaProductoes';

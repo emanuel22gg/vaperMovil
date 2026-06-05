@@ -7,8 +7,21 @@ import '../auth/change_password_screen.dart';
 import 'mis_pedidos_screen.dart';
 import '../../utils/responsive.dart';
 
-class PerfilScreen extends StatelessWidget {
+class PerfilScreen extends StatefulWidget {
   const PerfilScreen({super.key});
+
+  @override
+  State<PerfilScreen> createState() => _PerfilScreenState();
+}
+
+class _PerfilScreenState extends State<PerfilScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().refreshUser();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,9 +38,12 @@ class PerfilScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
+      body: RefreshIndicator(
+        onRefresh: () => context.read<AuthProvider>().refreshUser(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
             // Header con degradado y Avatar
             Stack(
               alignment: Alignment.center,
@@ -169,6 +185,7 @@ class PerfilScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

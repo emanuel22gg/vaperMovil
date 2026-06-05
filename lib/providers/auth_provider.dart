@@ -103,6 +103,23 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Actualizar usuario actual
+  Future<void> refreshUser() async {
+    if (_currentUser?.id == null) return;
+    try {
+      _isLoading = true;
+      notifyListeners();
+      
+      final updatedUser = await AuthService.getUsuarioById(_currentUser!.id!);
+      _currentUser = updatedUser;
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// Logout
   Future<void> logout() async {
     _currentUser = null;
