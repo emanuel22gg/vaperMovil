@@ -17,6 +17,7 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/carrito_item_card.dart';
 import '../../utils/responsive.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../widgets/app_menu.dart';
 
 /// Pantalla del carrito de compras
 class CarritoScreen extends StatefulWidget {
@@ -1248,6 +1249,9 @@ class _CarritoScreenState extends State<CarritoScreen> {
         title: const Text('Carrito de Compras'),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        actions: const [
+          AppMenu(),
+        ],
       ),
       body: carritoProvider.isEmpty
           ? Center(

@@ -41,7 +41,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Si el correo existe, recibirás un código de recuperación',
+            'Código de recuperación enviado con éxito',
           ),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 3),

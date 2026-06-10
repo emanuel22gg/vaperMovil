@@ -6,6 +6,7 @@ import '../../providers/carrito_provider.dart';
 import 'package:provider/provider.dart';
 import '../../utils/responsive.dart';
 import 'carrito_screen.dart';
+import '../../widgets/app_menu.dart';
 
 /// Pantalla de productos por categoría
 class ProductosScreen extends StatefulWidget {
@@ -131,6 +132,9 @@ class _ProductosScreenState extends State<ProductosScreen> {
         title: Text(widget.nombreCategoria),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        actions: const [
+          AppMenu(),
+        ],
       ),
       body: Column(
         children: [

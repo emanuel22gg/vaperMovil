@@ -70,6 +70,14 @@ class PedidoProvider extends ChangeNotifier {
         return usuario != null ? p.copyWith(usuario: usuario) : p;
       }).toList();
 
+      // Ordenar pedidos del más reciente al más antiguo
+      _pedidos.sort((a, b) {
+        if (a.fechaCreacion == null && b.fechaCreacion == null) return 0;
+        if (a.fechaCreacion == null) return 1;
+        if (b.fechaCreacion == null) return -1;
+        return b.fechaCreacion!.compareTo(a.fechaCreacion!);
+      });
+
       _detallesCache.clear();
       debugPrint('✅ PedidoProvider: ${_pedidos.length} pedidos cargados');
     } catch (e) {

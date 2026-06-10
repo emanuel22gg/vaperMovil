@@ -165,14 +165,26 @@ class AuthService {
   /// Enviar código de recuperación de contraseña
   static Future<bool> enviarCodigoRecuperacion(String correo) async {
     try {
+      // 1. Validar que el correo esté registrado
+      final usuariosResponse = await ApiService.get(ApiConfig.usuariosEndpoint);
+      if (usuariosResponse.statusCode == 200) {
+        final List<dynamic> usuariosJson = jsonDecode(usuariosResponse.body);
+        final bool emailExiste = usuariosJson.any(
+          (u) => (u['email']?.toString() ?? '').toLowerCase() == correo.toLowerCase()
+        );
+        
+        if (!emailExiste) {
+          throw Exception('El correo ingresado no se encuentra registrado.');
+        }
+      }
+
+      // 2. Si existe, solicitar el código
       final response = await ApiService.post(
         '${ApiConfig.usuariosEndpoint}/ForgotPassword',
         {'correo': correo},
       );
 
       if (response.statusCode == 200) {
-        // La API siempre devuelve el mensaje, incluso si el correo no existe
-        // Por seguridad, siempre retornamos true
         return true;
       } else {
         throw Exception(ApiService.handleError(response));

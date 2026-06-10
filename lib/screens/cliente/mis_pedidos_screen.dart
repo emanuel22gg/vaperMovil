@@ -8,6 +8,7 @@ import '../../widgets/pedido_card.dart';
 import '../../utils/responsive.dart';
 import 'package:intl/intl.dart';
 import '../../services/producto_service.dart';
+import '../../widgets/app_menu.dart';
 
 /// Pantalla de mis pedidos (Cliente)
 class MisPedidosScreen extends StatefulWidget {
@@ -91,6 +92,9 @@ class _MisPedidosScreenState extends State<MisPedidosScreen> {
         title: const Text('Mis Pedidos'),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        actions: const [
+          AppMenu(),
+        ],
       ),
       body: pedidoProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -318,6 +322,9 @@ class _PedidoDetalleClienteScreenState
         title: Text('Pedido #${pedido.id}'),
         backgroundColor: Colors.black, // Cambiado a negro para coincidir con estilo admin/premium
         foregroundColor: Colors.white,
+        actions: const [
+          AppMenu(),
+        ],
       ),
       body: FutureBuilder(
         future: pedidoProvider.getDetallesPedido(widget.pedidoId),

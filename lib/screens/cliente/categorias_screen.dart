@@ -14,6 +14,7 @@ import '../auth/login_screen.dart';
 import '../auth/change_password_screen.dart';
 import 'perfil_screen.dart';
 import '../../utils/responsive.dart';
+import '../../widgets/app_menu.dart';
 
 class CategoriasScreen extends StatefulWidget {
   const CategoriasScreen({super.key});
@@ -171,37 +172,7 @@ class _CategoriasScreenState extends State<CategoriasScreen> {
             ),
             onPressed: _navegarACarrito,
           ),
-          PopupMenuButton(
-            icon: const Icon(Icons.menu),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                child: const Row(children: [Icon(Icons.person), SizedBox(width: 8), Text('Mi Perfil')]),
-                onTap: () {
-                  Future.delayed(Duration.zero, () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const PerfilScreen()),
-                    );
-                  });
-                },
-              ),
-              PopupMenuItem(
-                child: const Row(children: [Icon(Icons.shopping_bag), SizedBox(width: 8), Text('Mis Pedidos')]),
-                onTap: () => Future.delayed(Duration.zero, _navegarAMisPedidos),
-              ),
-              PopupMenuItem(
-                child: const Row(children: [Icon(Icons.lock), SizedBox(width: 8), Text('Cambiar Contraseña')]),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
-                  );
-                },
-              ),
-              PopupMenuItem(
-                onTap: _cerrarSesion,
-                child: const Row(children: [Icon(Icons.logout, color: Colors.red), SizedBox(width: 8), Text('Cerrar Sesión', style: TextStyle(color: Colors.red))]),
-              ),
-            ],
-          ),
+          const AppMenu(),
         ],
       ),
       body: _isLoading

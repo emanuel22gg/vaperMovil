@@ -6,6 +6,7 @@ import '../auth/login_screen.dart';
 import '../auth/change_password_screen.dart';
 import 'mis_pedidos_screen.dart';
 import '../../utils/responsive.dart';
+import '../../widgets/app_menu.dart';
 
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({super.key});
@@ -37,6 +38,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: const [
+          AppMenu(),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () => context.read<AuthProvider>().refreshUser(),
